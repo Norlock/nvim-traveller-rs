@@ -1,0 +1,14 @@
+[package]
+name = "nvim-traveller-rs"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+crate-type = ["dylib"]
+
+[dependencies]
+nvim-oxi = { git = "https://github.com/noib3/nvim-oxi", features = ["neovim-nightly", "mlua"] }
+serde = { version = "1.0.197", features = ["serde_derive"] }
+serde_json = "1.0.115"
