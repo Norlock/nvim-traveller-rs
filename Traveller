@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use nvim_oxi::{
-    api::{self, opts::CmdOpts, types::CmdInfos, Buffer, Window},
+    api::{self, Buffer, Window},
     mlua::{self, Lua},
 };
 
@@ -41,29 +41,22 @@ impl AppState {
     }
 
     pub fn get_cwd(lua: &Lua) -> nvim_oxi::Result<PathBuf> {
-        let lfn: mlua::Function = lua.load("vim.fn.getcwd").eval()?;
+        let cwd_fn: mlua::Function = lua.load("vim.fn.getcwd").eval()?;
 
-        Ok(lfn.call::<(), String>(())?.into())
+        Ok(cwd_fn.call::<(), String>(())?.into())
     }
 
     pub fn get_history_dir(lua: &Lua) -> nvim_oxi::Result<PathBuf> {
-        let lfn: mlua::Function = lua.load("vim.fn.stdpath").eval()?;
+        let stdpath_fn: mlua::Function = lua.load("vim.fn.stdpath").eval()?;
 
-        Ok(lfn.call::<&str, String>("state")?.into())
-    }
-
-    pub fn set_buf_name_navigator(lua: &Lua) -> nvim_oxi::Result<()> {
-        let lfn: mlua::Function = lua.load("vim.cmd.file").eval()?;
-
-        Ok(lfn.call::<&str, ()>("Traveller")?)
+        Ok(stdpath_fn.call::<&str, String>("state")?.into())
     }
 
     pub fn open_navigation(&mut self, lua: &Lua) -> nvim_oxi::Result<()> {
         api::set_current_buf(&self.buf)?;
-
-        // Display in bar below
-        Self::set_buf_name_navigator(lua)?;
+        api::cmd("file Traveller");
 
         Ok(())
     }
+
 }

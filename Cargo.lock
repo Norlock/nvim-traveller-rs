@@ -20,9 +20,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.0.90"
+version = "1.0.92"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8cd6604a82acf3039f1144f54b8eb34e91ffba622051189e71b781822d5ee1f5"
+checksum = "2678b2e3449475e95b0aa6f9b506a28e61b3dc8996592b983695e8ebb58a8b41"
 
 [[package]]
 name = "cfg-if"
@@ -84,7 +84,7 @@ dependencies = [
 [[package]]
 name = "nvim-oxi"
 version = "0.4.2"
-source = "git+https://github.com/noib3/nvim-oxi#2cc277a387aa8d786363512bb368091ef4ff1766"
+source = "git+https://github.com/noib3/nvim-oxi#2c040798abe789ebd0dfc112b70a8494d3f6dd08"
 dependencies = [
  "mlua",
  "nvim-oxi-api",
@@ -97,7 +97,7 @@ dependencies = [
 [[package]]
 name = "nvim-oxi-api"
 version = "0.4.2"
-source = "git+https://github.com/noib3/nvim-oxi#2cc277a387aa8d786363512bb368091ef4ff1766"
+source = "git+https://github.com/noib3/nvim-oxi#2c040798abe789ebd0dfc112b70a8494d3f6dd08"
 dependencies = [
  "nvim-oxi-luajit",
  "nvim-oxi-macros",
@@ -110,7 +110,7 @@ dependencies = [
 [[package]]
 name = "nvim-oxi-luajit"
 version = "0.4.2"
-source = "git+https://github.com/noib3/nvim-oxi#2cc277a387aa8d786363512bb368091ef4ff1766"
+source = "git+https://github.com/noib3/nvim-oxi#2c040798abe789ebd0dfc112b70a8494d3f6dd08"
 dependencies = [
  "once_cell",
  "thiserror",
@@ -119,7 +119,7 @@ dependencies = [
 [[package]]
 name = "nvim-oxi-macros"
 version = "0.4.2"
-source = "git+https://github.com/noib3/nvim-oxi#2cc277a387aa8d786363512bb368091ef4ff1766"
+source = "git+https://github.com/noib3/nvim-oxi#2c040798abe789ebd0dfc112b70a8494d3f6dd08"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -129,7 +129,7 @@ dependencies = [
 [[package]]
 name = "nvim-oxi-types"
 version = "0.4.2"
-source = "git+https://github.com/noib3/nvim-oxi#2cc277a387aa8d786363512bb368091ef4ff1766"
+source = "git+https://github.com/noib3/nvim-oxi#2c040798abe789ebd0dfc112b70a8494d3f6dd08"
 dependencies = [
  "libc",
  "nvim-oxi-luajit",
@@ -221,9 +221,9 @@ dependencies = [
 
 [[package]]
 name = "serde_repr"
-version = "0.1.18"
+version = "0.1.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b2e6b945e9d3df726b65d6ee24060aff8e3533d431f677a9695db04eff9dfdb"
+checksum = "6c64451ba24fc7a6a2d60fc75dd9c83c90903b19028d4eff35e88fc1e86564e9"
 dependencies = [
  "proc-macro2",
  "quote",
