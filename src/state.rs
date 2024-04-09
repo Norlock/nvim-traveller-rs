@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use nvim_oxi::mlua::Lua;
+use nvim_oxi::mlua::{self, Lua};
 
 #[derive(Debug)]
 pub struct Location {
@@ -31,14 +31,14 @@ impl AppState {
     }
 
     pub fn get_cwd(lua: &Lua) -> PathBuf {
-        PathBuf::from("/tmp")
-        //let cwd_fn = lua.load("vim.fn.getcwd").into_function().unwrap();
-        //cwd_fn.call::<(), String>(()).expect("Can't call").into()
+        //PathBuf::from("/tmp")
+        let cwd_fn: mlua::Function  = lua.load("vim.fn.getcwd").eval().unwrap();
+        cwd_fn.call::<(), String>(()).expect("Can't call").into()
     }
     
     pub fn get_history_dir(lua: &Lua) -> PathBuf {
-        //PathBuf::from("/tmp")
-        let stdpath_fn = lua.load("vim.fn.stdpath").into_function().unwrap();
-        stdpath_fn.call::<&str, String>("data").unwrap().into()
+        PathBuf::from("/tmp")
+        //let stdpath_fn = lua.load("vim.fn.stdpath").into_function().unwrap();
+        //stdpath_fn.call::<&str, String>("data").unwrap().into()
     }
 }
