@@ -62,7 +62,14 @@ impl AppState {
         api::set_current_buf(&self.buf)?;
 
         // Display in bar below
-        Self::set_buf_name_navigator(lua)?;
+        api::cmd(
+            &CmdInfos::builder()
+                .cmd("echo")
+                .args(vec!["123"])
+                .bang(false)
+                .build(),
+            &CmdOpts::default(),
+        )?;
 
         Ok(())
     }
