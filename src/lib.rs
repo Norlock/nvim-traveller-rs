@@ -1,12 +1,18 @@
+use crate::state::AppContainer;
 use nvim_oxi::{
     lua,
     mlua::{self},
     Dictionary, Function, Object,
 };
 
-use crate::state::AppState;
-
 pub mod state;
+
+#[macro_use]
+extern crate lazy_static;
+
+lazy_static! {
+    pub static ref CONTAINER: AppContainer = AppContainer::dummy();
+}
 
 #[nvim_oxi::plugin]
 fn nvim_traveller_rs() -> Dictionary {
@@ -19,38 +25,44 @@ fn nvim_traveller_rs() -> Dictionary {
     //)
     //.unwrap();
 
-    let lua = mlua::lua();
+    //if let Err(err) = container {
+    //lua::print!("Error: {err:?}");
+    //return Dictionary::default();
+    //}
 
-    let state = AppState::new(lua);
+    //let open_navigation = Function::from_fn_mut::<_, nvim_oxi::Error>(move |()| {
+    //let lua = mlua::lua();
+    //let mut app = c_open.0.blocking_write();
 
-    if let Err(err) = state {
-        lua::print!("Error: {err:?}");
-        return Dictionary::default()
-    }
+    //lua::print!("{app:?}");
 
-    let mut state = state.unwrap();
+    //let _ = app.open_navigation(lua);
 
-    lua::print!("{state:?}");
+    //Ok(())
+    //});
 
-    let open_navigation = Function::from_fn_mut::<_, nvim_oxi::Error>(move |()| {
-        //lua::print!("open navigation: {state:?}");
-        let _ = state.open_navigation(lua);
+    let open_navigation_ptr = Function::from_fn(open_navigation);
+    let close_navigation_ptr = Function::from_fn(close_navigation);
 
-        Ok(())
-    });
-
-    Dictionary::from_iter([("open_navigation", Object::from(open_navigation))])
+    Dictionary::from_iter([
+        ("open_navigation", Object::from(open_navigation_ptr)),
+        ("close_navigation", Object::from(close_navigation_ptr)),
+    ])
 }
 
-//fn open_navigation() {}
+fn open_navigation(_: ()) -> nvim_oxi::Result<()> {
+    let lua = mlua::lua();
+    let mut app = CONTAINER.0.blocking_write();
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+    lua::print!("{app:?}");
 
-    #[test]
-    fn it_works() {
-        //let result = nvim_traveller_rs();
-        //assert_eq!(result, 46);
-    }
+    app.open_navigation(lua)
+}
+
+fn close_navigation(_: ()) -> nvim_oxi::Result<()> {
+    lua::print!("KOMT HIER");
+    let lua = mlua::lua();
+    let app = CONTAINER.0.blocking_read();
+
+    app.close_navigation(lua)
 }
