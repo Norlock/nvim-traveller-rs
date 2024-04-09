@@ -20,12 +20,16 @@ fn nvim_traveller_rs() -> Dictionary {
     //.unwrap();
 
     let lua = mlua::lua();
-    let state = AppState::new(lua);
+
+    let mut state = AppState::new(lua);
     lua::print!("{state:?}");
 
-    let open_navigation = Function::from_fn::<_, nvim_oxi::Error>(move |()| {
+    let open_navigation = Function::from_fn_mut::<_, nvim_oxi::Error>(move |()| {
         // TODO serde json state
-        lua::print!("open navigation");
+        state.show_hidden = !state.show_hidden;
+
+        lua::print!("open navigation: {state:?}");
+
 
         Ok(())
     });

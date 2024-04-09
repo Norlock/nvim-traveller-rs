@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use nvim_oxi::mlua::{self, Lua};
+use nvim_oxi::{api::{self, Buffer, Window}, mlua::{self, Lua}};
 
 #[derive(Debug)]
 pub struct Location {
@@ -16,6 +16,8 @@ pub struct AppState {
     pub buf_content: Vec<String>,
     pub cwd: PathBuf,
     pub history_dir: PathBuf,
+    pub win: Window,
+    pub buf: Buffer,
 }
 
 impl AppState {
@@ -26,19 +28,19 @@ impl AppState {
             selection: vec![],
             buf_content: vec![],
             cwd: Self::get_cwd(lua),
-            history_dir: Self::get_history_dir(lua)
+            history_dir: Self::get_history_dir(lua),
+            win: api::get_current_win(),
+            buf: api::get_current_buf(),
         }
     }
 
     pub fn get_cwd(lua: &Lua) -> PathBuf {
-        //PathBuf::from("/tmp")
         let cwd_fn: mlua::Function  = lua.load("vim.fn.getcwd").eval().unwrap();
         cwd_fn.call::<(), String>(()).expect("Can't call").into()
     }
     
     pub fn get_history_dir(lua: &Lua) -> PathBuf {
-        PathBuf::from("/tmp")
-        //let stdpath_fn = lua.load("vim.fn.stdpath").into_function().unwrap();
-        //stdpath_fn.call::<&str, String>("data").unwrap().into()
+        let stdpath_fn: mlua::Function = lua.load("vim.fn.stdpath").eval().unwrap();
+        stdpath_fn.call::<&str, String>("state").unwrap().into()
     }
 }
