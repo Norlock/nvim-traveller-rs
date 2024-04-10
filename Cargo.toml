@@ -10,7 +10,7 @@ crate-type = ["dylib"]
 
 [dependencies]
 lazy_static = "1.4.0"
-nvim-oxi = { git = "https://github.com/noib3/nvim-oxi", features = ["neovim-nightly", "mlua"] }
+nvim-oxi = { git = "https://github.com/norlock/nvim-oxi", branch ="feat/mlua-utils", features = ["neovim-nightly", "mlua"] }
 serde = { version = "1.0.197", features = ["serde_derive"] }
 serde_json = "1.0.115"
 tokio = { version = "1.37.0", features = ["macros", "rt", "rt-multi-thread", "sync"] }

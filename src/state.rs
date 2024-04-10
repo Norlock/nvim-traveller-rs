@@ -1,7 +1,12 @@
 use nvim_oxi::{
-    api::{self, opts::{BufAttachOpts, BufDeleteOpts}, types::Mode, Buffer, Window},
+    api::{
+        self,
+        opts::{BufAttachOpts, BufDeleteOpts},
+        types::Mode,
+        Buffer, LuaApi, StdpathType, Window,
+    },
     lua::Error,
-    mlua::{self, Lua},
+    mlua::{self, Lua, Result, Table},
 };
 use std::{path::PathBuf, sync::Arc};
 use tokio::sync::RwLock;
@@ -59,8 +64,8 @@ impl AppState {
             history: vec![],
             selection: vec![],
             buf_content: vec![],
-            cwd: Self::get_cwd(lua)?,
-            history_dir: Self::get_history_dir(lua)?,
+            cwd: LuaApi::get_cwd(lua)?,
+            history_dir: LuaApi::stdpath(lua, StdpathType::State)?,
             win: api::get_current_win(),
             buf,
         })
@@ -70,29 +75,42 @@ impl AppState {
         Ok(api::create_buf(false, true)?)
     }
 
-    pub fn get_cwd(lua: &Lua) -> nvim_oxi::Result<PathBuf> {
-        let lfn: mlua::Function = lua.load("vim.fn.getcwd").eval()?;
-
-        Ok(lfn.call::<(), String>(())?.into())
-    }
-
-    pub fn get_history_dir(lua: &Lua) -> nvim_oxi::Result<PathBuf> {
-        let lfn: mlua::Function = lua.load("vim.fn.stdpath").eval()?;
-
-        Ok(lfn.call::<&str, String>("state")?.into())
-    }
-
     pub fn set_buf_name_navigator(lua: &Lua) -> nvim_oxi::Result<()> {
         let lfn: mlua::Function = lua.load("vim.cmd.file").eval()?;
 
         Ok(lfn.call::<&str, ()>("Traveller")?)
     }
 
+    pub fn set_keymap<'a>(
+        lua: &'a Lua,
+        mode: Mode,
+        lhs: &'a str,
+        rhs: mlua::Function,
+        keymap_opts: Table<'a>,
+    ) -> nvim_oxi::Result<()> {
+        let lfn: mlua::Function = lua.load("vim.keymap.set").eval()?;
+
+        let mode = match mode {
+            Mode::Insert => "i",
+            Mode::Normal => "n",
+            Mode::Visual => "v",
+            Mode::Select => "s",
+            _ => "n",
+        };
+
+        Ok(lfn.call::<(&str, &str, mlua::Function, mlua::Table), ()>((
+            mode,
+            lhs,
+            rhs,
+            keymap_opts,
+        ))?)
+    }
+
     pub fn open_navigation(&mut self, lua: &Lua) -> nvim_oxi::Result<()> {
         self.buf = Self::create_nav_buf()?;
         self.buf.set_option("bufhidden", "wipe")?;
-        self.cwd = Self::get_cwd(lua)?;
-        self.history_dir = Self::get_history_dir(lua)?;
+        self.cwd = LuaApi::get_cwd(lua)?;
+        self.history_dir = LuaApi::stdpath(lua, StdpathType::State)?;
         self.win = api::get_current_win();
 
         api::set_current_buf(&self.buf)?;
@@ -100,33 +118,23 @@ impl AppState {
         // Display in bar below
         Self::set_buf_name_navigator(lua)?;
 
-        let buffer_keymaps = lua.create_table()?;
+        let km_opts = LuaApi::buf_keymap_opts(lua, true, self.buf.bufnr())?;
 
-        buffer_keymaps.set(
-            "close_navigation",
-            lua.create_function(|lua, _: ()| {
-                let app = CONTAINER.0.blocking_read();
-                nvim_oxi::lua::print!("appje! {app:?}");
-
-                let lfn: mlua::Function = lua.load("vim.cmd.e").eval()?;
-
-                Ok(lfn.call::<&str, ()>("#")?)
-            })?,
-        )?;
-
-        //let tb: mlua::Table = lua.globals().get("traveller_bindings").unwrap();
-
-        lua.globals().set("traveller_bindings", buffer_keymaps)?;
-
-        //self.buf.attach(true, &BufAttachOpts::builder().)
-        let _ = self.buf.set_keymap(
+        LuaApi::set_keymap(
+            lua,
             Mode::Normal,
             "q",
-            ":lua traveller_bindings.close_navigation();<Cr>",
-            &Default::default(),
-        );
+            lua.create_function(Self::close_nav)?,
+            km_opts,
+        )?;
 
         Ok(())
+    }
+
+    fn close_nav(lua: &Lua, _: ()) -> mlua::prelude::LuaResult<()> {
+        let lfn: mlua::Function = lua.load("vim.cmd.e").eval()?;
+
+        Ok(lfn.call::<&str, ()>("#")?)
     }
 
     pub fn close_navigation(&self, lua: &Lua) -> nvim_oxi::Result<()> {

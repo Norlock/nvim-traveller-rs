@@ -151,7 +151,7 @@ dependencies = [
 [[package]]
 name = "nvim-oxi"
 version = "0.4.2"
-source = "git+https://github.com/noib3/nvim-oxi#2c040798abe789ebd0dfc112b70a8494d3f6dd08"
+source = "git+https://github.com/norlock/nvim-oxi?branch=feat/mlua-utils#8be4b3dd1f26794fe20631114e47b967f0594cc3"
 dependencies = [
  "mlua",
  "nvim-oxi-api",
@@ -164,8 +164,9 @@ dependencies = [
 [[package]]
 name = "nvim-oxi-api"
 version = "0.4.2"
-source = "git+https://github.com/noib3/nvim-oxi#2c040798abe789ebd0dfc112b70a8494d3f6dd08"
+source = "git+https://github.com/norlock/nvim-oxi?branch=feat/mlua-utils#8be4b3dd1f26794fe20631114e47b967f0594cc3"
 dependencies = [
+ "mlua",
  "nvim-oxi-luajit",
  "nvim-oxi-macros",
  "nvim-oxi-types",
@@ -177,7 +178,7 @@ dependencies = [
 [[package]]
 name = "nvim-oxi-luajit"
 version = "0.4.2"
-source = "git+https://github.com/noib3/nvim-oxi#2c040798abe789ebd0dfc112b70a8494d3f6dd08"
+source = "git+https://github.com/norlock/nvim-oxi?branch=feat/mlua-utils#8be4b3dd1f26794fe20631114e47b967f0594cc3"
 dependencies = [
  "once_cell",
  "thiserror",
@@ -186,7 +187,7 @@ dependencies = [
 [[package]]
 name = "nvim-oxi-macros"
 version = "0.4.2"
-source = "git+https://github.com/noib3/nvim-oxi#2c040798abe789ebd0dfc112b70a8494d3f6dd08"
+source = "git+https://github.com/norlock/nvim-oxi?branch=feat/mlua-utils#8be4b3dd1f26794fe20631114e47b967f0594cc3"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -196,7 +197,7 @@ dependencies = [
 [[package]]
 name = "nvim-oxi-types"
 version = "0.4.2"
-source = "git+https://github.com/noib3/nvim-oxi#2c040798abe789ebd0dfc112b70a8494d3f6dd08"
+source = "git+https://github.com/norlock/nvim-oxi?branch=feat/mlua-utils#8be4b3dd1f26794fe20631114e47b967f0594cc3"
 dependencies = [
  "libc",
  "nvim-oxi-luajit",
@@ -253,9 +254,9 @@ dependencies = [
 
 [[package]]
 name = "quote"
-version = "1.0.35"
+version = "1.0.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "291ec9ab5efd934aaf503a6466c5d5251535d108ee747472c3977cc5acc868ef"
+checksum = "0fa76aaf39101c457836aec0ce2316dbdc3ab723cdda1c6bd4e6ad4208acaca7"
 dependencies = [
  "proc-macro2",
 ]
