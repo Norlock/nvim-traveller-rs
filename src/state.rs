@@ -1,17 +1,16 @@
 use nvim_oxi::{
-    api::{
-        self,
-        opts::{BufAttachOpts, BufDeleteOpts},
-        types::Mode,
-        Buffer, LuaApi, StdpathType, Window,
-    },
-    lua::Error,
-    mlua::{self, Lua, Result, Table},
+    api::{self, types::Mode, Buffer, Window},
+    mlua::{self, Lua, Table},
 };
-use std::{path::PathBuf, sync::Arc};
+use std::{
+    fs::{self, DirEntry},
+    path::PathBuf,
+    sync::Arc,
+};
 use tokio::sync::RwLock;
 
 use crate::CONTAINER;
+use crate::{lua_api::*, theme::Theme};
 
 #[derive(Debug)]
 pub struct Location {
@@ -29,6 +28,7 @@ pub struct AppState {
     pub history_dir: PathBuf,
     pub win: Window,
     pub buf: Buffer,
+    pub theme: Theme,
 }
 
 unsafe impl Send for AppState {}
@@ -37,8 +37,8 @@ unsafe impl Sync for AppState {}
 #[derive(Clone)]
 pub struct AppContainer(pub Arc<RwLock<AppState>>);
 
-impl AppContainer {
-    pub fn dummy() -> Self {
+impl Default for AppContainer {
+    fn default() -> Self {
         let dummy_state = AppState {
             buf: Buffer::from(0),
             win: Window::from(0),
@@ -48,6 +48,7 @@ impl AppContainer {
             show_hidden: false,
             cwd: PathBuf::from("/tmp"),
             history_dir: PathBuf::from("/tmp"),
+            theme: Theme::default(),
         };
 
         Self(Arc::new(RwLock::new(dummy_state)))
@@ -55,22 +56,6 @@ impl AppContainer {
 }
 
 impl AppState {
-    pub fn new(lua: &Lua) -> nvim_oxi::Result<Self> {
-        let mut buf = Self::create_nav_buf()?;
-        buf.set_option("bufhidden", "wipe")?;
-
-        Ok(Self {
-            show_hidden: false,
-            history: vec![],
-            selection: vec![],
-            buf_content: vec![],
-            cwd: LuaApi::get_cwd(lua)?,
-            history_dir: LuaApi::stdpath(lua, StdpathType::State)?,
-            win: api::get_current_win(),
-            buf,
-        })
-    }
-
     pub fn create_nav_buf() -> nvim_oxi::Result<Buffer> {
         Ok(api::create_buf(false, true)?)
     }
@@ -115,6 +100,14 @@ impl AppState {
 
         api::set_current_buf(&self.buf)?;
 
+        // Set buffer content
+        self.buf.set_option("modifiable", true)?;
+        self.buf_content = nav_buffer_lines(&self.cwd)?;
+        LuaApi::buf_set_lines(lua, self.buf.bufnr(), 0, -1, true, self.buf_content.clone())?;
+        self.buf.set_option("modifiable", false)?;
+
+        self.theme_nav_buffer(lua);
+
         // Display in bar below
         Self::set_buf_name_navigator(lua)?;
 
@@ -124,30 +117,43 @@ impl AppState {
             lua,
             Mode::Normal,
             "q",
-            lua.create_function(Self::close_nav)?,
+            lua.create_function(Self::close_navigation)?,
             km_opts,
         )?;
 
         Ok(())
     }
 
-    fn close_nav(lua: &Lua, _: ()) -> mlua::prelude::LuaResult<()> {
+    fn close_navigation(lua: &Lua, _: ()) -> mlua::prelude::LuaResult<()> {
         let lfn: mlua::Function = lua.load("vim.cmd.e").eval()?;
 
         Ok(lfn.call::<&str, ()>("#")?)
     }
+}
 
-    pub fn close_navigation(&self, lua: &Lua) -> nvim_oxi::Result<()> {
-        // TODO git root
-        nvim_oxi::lua::print!("Test 323");
-        let lfn: mlua::Function = lua.load("vim.cmd.e").eval()?;
-        //let del_buf = self.buf.clone();
+fn nav_buffer_lines(path: &PathBuf) -> nvim_oxi::Result<Vec<String>> {
+    let dir =
+        fs::read_dir(path).map_err(|e| nvim_oxi::Error::Api(api::Error::Other(e.to_string())))?;
 
-        //del_buf
-        //.delete(&BufDeleteOpts::default())
-        //.unwrap();
+    let mut lines = vec![];
 
-        //Ok(())
-        Ok(lfn.call::<&str, ()>("#")?)
+    for item in dir {
+        if let Ok(entry) = item {
+            append_item(entry, &mut lines);
+        }
+    }
+
+    Ok(lines)
+}
+
+fn append_item(entry: DirEntry, lines: &mut Vec<String>) {
+    if let Ok(file_type) = entry.file_type() {
+        let name = entry.file_name().to_string_lossy().to_string();
+
+        if file_type.is_dir() {
+            lines.push(format!("{name}/"));
+        } else {
+            lines.push(name);
+        }
     }
 }
