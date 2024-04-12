@@ -1,9 +1,11 @@
+use std::{error::Error, io};
+
 use crate::{
     lua_api::LuaApi,
     lua_api_types::{ExtmarkOpts, Ui},
     state::AppState,
 };
-use mlua::prelude::LuaResult;
+use mlua::prelude::{LuaError, LuaExternalError, LuaResult};
 
 #[derive(Debug)]
 pub struct Theme {
@@ -48,41 +50,28 @@ impl AppState {
 
         if self.buf_content.is_empty() {
             // TODO cursorline false
-            let mut ui: Option<Ui> = None;
+            let ui = &LuaApi::list_uis(lua)?[0];
 
-            //for ui_item in api::list_uis() {
-            //ui = Some(ui_item);
-            //break;
-            //}
+            let text = "Traveller - (Empty directory)".to_string();
+            let width = text.len() as u32;
+            let center = ((ui.width - width) as f32 * 0.5).round() as u32 - 2;
 
-            //if ui.is_none() {
-            //return Err(nvim_oxi::Error::Api(api::Error::Other(
-            //"No ui's".to_string(),
-            //)));
-            //}
+            let virt_text_item = lua.create_table()?;
+            virt_text_item.push(text)?;
+            virt_text_item.push("Comment")?;
 
-            //let ui = ui.unwrap();
+            let opts = LuaApi::buf_extmark_opts(
+                lua,
+                ExtmarkOpts {
+                    id: Some(1),
+                    end_row: Some(0),
+                    virt_text: Some(vec![virt_text_item]),
+                    virt_text_win_col: Some(center),
+                    ..Default::default()
+                },
+            )?;
 
-            //let text = "Traveller - (Empty directory)".to_string();
-            //let width = text.len();
-            //let center = ((ui.width - width) as f32 * 0.5).round() as u32 - 2;
-
-            //let virt_text_item = lua.create_table()?;
-            //virt_text_item.push(text)?;
-            //virt_text_item.push("Comment")?;
-
-            //let opts = LuaApi::buf_extmark_opts(
-            //lua,
-            //ExtmarkOpts {
-            //id: Some(1),
-            //end_row: Some(0),
-            //virt_text: Some(vec![virt_text_item]),
-            //virt_text_win_col: Some(center),
-            //..Default::default()
-            //},
-            //)?;
-
-            //LuaApi::buf_set_extmark(lua, self.buf.bufnr(), theme.navigation_ns, 0, 0, opts)?;
+            LuaApi::buf_set_extmark(lua, self.buf.id(), theme.navigation_ns, 0, 0, opts)?;
         }
 
         Ok(())

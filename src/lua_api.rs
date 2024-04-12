@@ -181,7 +181,7 @@ impl LuaApi {
 
     pub fn buf_set_extmark<'a>(
         lua: &'a mlua::Lua,
-        buf_id: i32,
+        buf_id: u32,
         ns_id: u32,
         line: u32,
         col: u32,
@@ -189,7 +189,7 @@ impl LuaApi {
     ) -> mlua::Result<()> {
         let lfn: mlua::Function = lua.load("vim.api.nvim_buf_set_extmark").eval()?;
 
-        Ok(lfn.call::<(i32, u32, u32, u32, mlua::Table), ()>((buf_id, ns_id, line, col, opts))?)
+        Ok(lfn.call::<(u32, u32, u32, u32, mlua::Table), ()>((buf_id, ns_id, line, col, opts))?)
     }
 
     pub fn set_keymap<'a>(
