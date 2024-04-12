@@ -18,19 +18,17 @@ lazy_static! {
 fn nvim_traveller_rs(lua: &Lua) -> LuaResult<LuaTable> {
     let module = lua.create_table()?;
 
-    module.set("open_navigation", lua.create_function(open_navigation)?)?;
+    module.set("open_navigation", lua.create_async_function(open_navigation)?)?;
 
     Ok(module)
 }
 
-fn open_navigation(lua: &Lua, _: ()) -> LuaResult<()> {
-    let mut app = CONTAINER.0.blocking_write();
+async fn open_navigation(lua: &Lua, _: ()) -> LuaResult<()> {
+    let mut app = CONTAINER.0.write().await;
 
     app.theme.init(lua)?;
 
-    LuaApi::notify(lua, &"test")?;
-
-    //lua::print!("{app:?}");
+    LuaApi::notify(lua, &app)?;
 
     app.open_navigation(lua)
 }

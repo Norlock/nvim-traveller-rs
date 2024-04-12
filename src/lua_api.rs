@@ -1,14 +1,12 @@
+use super::lua_api_types::ExtmarkOpts;
+use crate::lua_api_types::{Buffer, Mode, OptValueType, Ui, Window};
 use mlua::Table;
 use mlua::{prelude::LuaResult, IntoLua};
-use std::fmt::Display;
 use std::path::PathBuf;
-
-use crate::lua_api_types::{Buffer, Mode, OptValueType, Ui, Window};
-
-use super::lua_api_types::ExtmarkOpts;
 
 pub struct LuaApi;
 
+#[allow(unused)]
 pub enum StdpathType {
     /// Cache directory: arbitrary temporary storage for plugins, etc.
     Cache,
@@ -39,6 +37,7 @@ impl std::fmt::Debug for StdpathType {
     }
 }
 
+#[allow(unused)]
 impl LuaApi {
     pub fn create_buf(lua: &mlua::Lua, listed: bool, scratch: bool) -> LuaResult<Buffer> {
         let lfn: mlua::Function = lua.load("vim.api.nvim_create_buf").eval()?;
@@ -207,7 +206,6 @@ impl LuaApi {
             Mode::Normal => "n",
             Mode::Visual => "v",
             Mode::Select => "s",
-            _ => "n",
         };
 
         Ok(lfn.call::<(&str, &str, mlua::Function, mlua::Table), ()>((
