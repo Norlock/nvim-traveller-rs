@@ -1,5 +1,7 @@
-use nvim_oxi::mlua::{self, FromLua, LuaSerdeExt, Table, Value};
+use mlua::prelude::*;
 use serde::{Deserialize, Serialize};
+
+use crate::lua_api::LuaApi;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VirtTextPos {
@@ -14,6 +16,11 @@ pub enum HlMode {
     Replace,
     Combine,
     Blend,
+}
+
+pub enum OptValueType {
+    Window(Window),
+    Buffer(Buffer),
 }
 
 #[derive(Debug, Default)]
@@ -32,7 +39,7 @@ pub struct ExtmarkOpts<'lua> {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct UI {
+pub struct Ui {
     pub chan: u32,
     pub ext_cmdline: bool,
     pub ext_hlstate: bool,
@@ -54,10 +61,79 @@ pub struct UI {
     pub width: u32,
 }
 
-impl<'lua> FromLua<'lua> for UI {
-    fn from_lua(value: LuaValue<'lua>, lua: &'lua mlua::prelude::Lua) -> mlua::prelude::LuaResult<Self> {
-        let ui: UI = lua.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Mode {
+    Normal,
+    Insert,
+    Visual,
+    Select,
+}
 
+impl Mode {
+    pub fn get_char(&self) -> char {
+        match self {
+            Mode::Insert => 'i',
+            Mode::Normal => 'n',
+            Mode::Visual => 'v',
+            Mode::Select => 's',
+            _ => 'n',
+        }
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct Window(u32);
+
+impl Window {
+    pub const ZERO: Self = Self(0);
+
+    pub fn new(id: u32) -> Self {
+        Self(id)
+    }
+
+    pub fn id(&self) -> u32 {
+        self.0
+    }
+
+    pub fn set_option<'a, V: IntoLua<'a>>(
+        &self,
+        lua: &'a Lua,
+        key: &str,
+        value: V,
+    ) -> LuaResult<()> {
+        LuaApi::set_option_value(lua, key, value, OptValueType::Window(*self))
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct Buffer(u32);
+
+impl Buffer {
+    pub const ZERO: Self = Self(0);
+
+    pub fn new(id: u32) -> Self {
+        Self(id)
+    }
+
+    pub fn id(&self) -> u32 {
+        self.0
+    }
+
+    pub fn set_option<'a, V: IntoLua<'a>>(
+        &self,
+        lua: &'a Lua,
+        key: &str,
+        value: V,
+    ) -> LuaResult<()> {
+        LuaApi::set_option_value(lua, key, value, OptValueType::Buffer(*self))
+    }
+}
+
+impl<'lua> FromLua<'lua> for Ui {
+    fn from_lua(
+        value: LuaValue<'lua>,
+        lua: &'lua mlua::prelude::Lua,
+    ) -> mlua::prelude::LuaResult<Self> {
+        lua.from_value(value)
+    }
+}
