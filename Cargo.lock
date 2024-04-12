@@ -61,6 +61,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
+name = "erased-serde"
+version = "0.4.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b73807008a3c7f171cc40312f37d95ef0396e048b5848d775f54b1a4dd4a0d3"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "gimli"
 version = "0.28.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -112,10 +121,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6d9bed6bce296397a9d6a86f995dd10a547a4e6949825d45225906bdcbfe7367"
 dependencies = [
  "bstr",
+ "erased-serde",
  "mlua-sys",
  "num-traits",
  "once_cell",
  "rustc-hash",
+ "serde",
+ "serde-value",
 ]
 
 [[package]]
@@ -149,67 +161,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "nvim-oxi"
-version = "0.4.2"
-source = "git+https://github.com/norlock/nvim-oxi?branch=feat/mlua-utils#9f20fc499fc855d2f9fbc3561f70c8dc6fe506f5"
-dependencies = [
- "mlua",
- "nvim-oxi-api",
- "nvim-oxi-luajit",
- "nvim-oxi-macros",
- "nvim-oxi-types",
- "thiserror",
-]
-
-[[package]]
-name = "nvim-oxi-api"
-version = "0.4.2"
-source = "git+https://github.com/norlock/nvim-oxi?branch=feat/mlua-utils#9f20fc499fc855d2f9fbc3561f70c8dc6fe506f5"
-dependencies = [
- "nvim-oxi-luajit",
- "nvim-oxi-macros",
- "nvim-oxi-types",
- "serde",
- "serde_repr",
- "thiserror",
-]
-
-[[package]]
-name = "nvim-oxi-luajit"
-version = "0.4.2"
-source = "git+https://github.com/norlock/nvim-oxi?branch=feat/mlua-utils#9f20fc499fc855d2f9fbc3561f70c8dc6fe506f5"
-dependencies = [
- "once_cell",
- "thiserror",
-]
-
-[[package]]
-name = "nvim-oxi-macros"
-version = "0.4.2"
-source = "git+https://github.com/norlock/nvim-oxi?branch=feat/mlua-utils#9f20fc499fc855d2f9fbc3561f70c8dc6fe506f5"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "nvim-oxi-types"
-version = "0.4.2"
-source = "git+https://github.com/norlock/nvim-oxi?branch=feat/mlua-utils#9f20fc499fc855d2f9fbc3561f70c8dc6fe506f5"
-dependencies = [
- "libc",
- "nvim-oxi-luajit",
- "serde",
- "thiserror",
-]
-
-[[package]]
 name = "nvim-traveller-rs"
 version = "0.1.0"
 dependencies = [
  "lazy_static",
- "nvim-oxi",
+ "mlua",
  "serde",
  "serde_json",
  "tokio",
@@ -229,6 +185,15 @@ name = "once_cell"
 version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3fdb12b2476b595f9358c5161aa467c2438859caa136dec86c26fdd2efe17b92"
+
+[[package]]
+name = "ordered-float"
+version = "2.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68f19d67e5a2795c94e73e0bb1cc1a7edeb2e28efd39e2e1c9b7a40c1108b11c"
+dependencies = [
+ "num-traits",
+]
 
 [[package]]
 name = "pin-project-lite"
@@ -288,6 +253,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde-value"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3a1a3341211875ef120e117ea7fd5228530ae7e7036a779fdc9117be6b3282c"
+dependencies = [
+ "ordered-float",
+ "serde",
+]
+
+[[package]]
 name = "serde_derive"
 version = "1.0.197"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -310,17 +285,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde_repr"
-version = "0.1.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c64451ba24fc7a6a2d60fc75dd9c83c90903b19028d4eff35e88fc1e86564e9"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "syn"
 version = "2.0.58"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -329,26 +293,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
-]
-
-[[package]]
-name = "thiserror"
-version = "1.0.58"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03468839009160513471e86a034bb2c5c0e4baae3b43f79ffc55c4a5427b3297"
-dependencies = [
- "thiserror-impl",
-]
-
-[[package]]
-name = "thiserror-impl"
-version = "1.0.58"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c61f3ba182994efc43764a46c018c347bc492c79f024e705f46567b418f6d4f7"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]

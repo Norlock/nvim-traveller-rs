@@ -39,7 +39,7 @@ pub struct AppContainer(pub Arc<RwLock<AppState>>);
 
 impl Default for AppContainer {
     fn default() -> Self {
-        let dummy_state = AppState {
+        let app = AppState {
             buf: Buffer::from(0),
             win: Window::from(0),
             history: vec![],
@@ -51,7 +51,7 @@ impl Default for AppContainer {
             theme: Theme::default(),
         };
 
-        Self(Arc::new(RwLock::new(dummy_state)))
+        Self(Arc::new(RwLock::new(app)))
     }
 }
 
@@ -64,31 +64,6 @@ impl AppState {
         let lfn: mlua::Function = lua.load("vim.cmd.file").eval()?;
 
         Ok(lfn.call::<&str, ()>("Traveller")?)
-    }
-
-    pub fn set_keymap<'a>(
-        lua: &'a Lua,
-        mode: Mode,
-        lhs: &'a str,
-        rhs: mlua::Function,
-        keymap_opts: Table<'a>,
-    ) -> nvim_oxi::Result<()> {
-        let lfn: mlua::Function = lua.load("vim.keymap.set").eval()?;
-
-        let mode = match mode {
-            Mode::Insert => "i",
-            Mode::Normal => "n",
-            Mode::Visual => "v",
-            Mode::Select => "s",
-            _ => "n",
-        };
-
-        Ok(lfn.call::<(&str, &str, mlua::Function, mlua::Table), ()>((
-            mode,
-            lhs,
-            rhs,
-            keymap_opts,
-        ))?)
     }
 
     pub fn open_navigation(&mut self, lua: &Lua) -> nvim_oxi::Result<()> {
@@ -106,7 +81,7 @@ impl AppState {
         LuaApi::buf_set_lines(lua, self.buf.bufnr(), 0, -1, true, self.buf_content.clone())?;
         self.buf.set_option("modifiable", false)?;
 
-        self.theme_nav_buffer(lua);
+        self.theme_nav_buffer(lua)?;
 
         // Display in bar below
         Self::set_buf_name_navigator(lua)?;

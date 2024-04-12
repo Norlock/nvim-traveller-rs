@@ -7,7 +7,7 @@ use nvim_oxi::{
 
 mod state;
 mod lua_api;
-mod lua_opts;
+mod lua_api_types;
 mod theme;
 
 #[macro_use]

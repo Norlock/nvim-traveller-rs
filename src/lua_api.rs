@@ -3,7 +3,9 @@ use nvim_oxi::api::types::Mode;
 use nvim_oxi::mlua;
 use std::path::PathBuf;
 
-use crate::lua_opts::ExtmarkOpts;
+use crate::lua_api_types::UI;
+
+use super::lua_api_types::ExtmarkOpts;
 
 pub struct LuaApi;
 
@@ -97,15 +99,31 @@ impl LuaApi {
     pub fn buf_extmark_opts<'a>(lua: &'a mlua::Lua, opts: ExtmarkOpts) -> mlua::Result<Table<'a>> {
         let table = lua.create_table()?;
 
-        if let Some(val) = opts.id {
-            //
+        if let Some(id) = opts.id {
+            table.set("id", id)?;
         }
 
-        if let Some(val) = opts.hl_eol {
-            //
+        if let Some(end_row) = opts.end_row {
+            table.set("end_row", end_row)?;
+        }
+
+        if let Some(virt_text) = opts.virt_text {
+            table.set("virt_text", virt_text)?;
+        }
+
+        if let Some(virt_text_win_col) = opts.virt_text_win_col {
+            table.set("virt_text_win_col", virt_text_win_col)?;
         }
 
         Ok(table)
+    }
+
+    pub fn list_uis(
+        lua: &mlua::Lua
+    ) -> nvim_oxi::Result<Vec<UI>> {
+        let lfn: mlua::Function = lua.load("vim.api.nvim_list_uis").eval()?;
+
+        Ok(lfn.call::<(), Vec<UI>>(())?)
     }
 
     pub fn buf_set_extmark<'a>(
