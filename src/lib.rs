@@ -1,9 +1,9 @@
 use crate::state::AppContainer;
-use lua_api::LuaApi;
+use neo_api::NvApi;
 use mlua::prelude::*;
 
-mod lua_api;
-mod lua_api_types;
+mod neo_api;
+mod neo_api_types;
 mod state;
 mod theme;
 
@@ -28,7 +28,7 @@ async fn open_navigation(lua: &Lua, _: ()) -> LuaResult<()> {
 
     app.theme.init(lua)?;
 
-    LuaApi::notify(lua, &app)?;
+    NvApi::notify(lua, &app)?;
 
     app.open_navigation(lua)
 }

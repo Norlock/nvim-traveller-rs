@@ -1,11 +1,5 @@
-use std::{error::Error, io};
-
-use crate::{
-    lua_api::LuaApi,
-    lua_api_types::{ExtmarkOpts, Ui},
-    state::AppState,
-};
-use mlua::prelude::{LuaError, LuaExternalError, LuaResult};
+use crate::{lua_api::NvApi, lua_api_types::ExtmarkOpts, state::AppState};
+use mlua::prelude::LuaResult;
 
 #[derive(Debug)]
 pub struct Theme {
@@ -19,10 +13,10 @@ pub struct Theme {
 impl Theme {
     pub fn init(&mut self, lua: &mlua::Lua) -> LuaResult<()> {
         if !self.init {
-            self.navigation_ns = LuaApi::create_namespace(lua, "TravellerNavigation")?;
-            self.popup_ns = LuaApi::create_namespace(lua, "TravellerInfo")?;
-            self.help_ns = LuaApi::create_namespace(lua, "TravellerHelp")?;
-            self.status_ns = LuaApi::create_namespace(lua, "TravellerStatus")?;
+            self.navigation_ns = NvApi::create_namespace(lua, "TravellerNavigation")?;
+            self.popup_ns = NvApi::create_namespace(lua, "TravellerInfo")?;
+            self.help_ns = NvApi::create_namespace(lua, "TravellerHelp")?;
+            self.status_ns = NvApi::create_namespace(lua, "TravellerStatus")?;
             self.init = true;
         }
 
@@ -45,12 +39,12 @@ impl Default for Theme {
 impl AppState {
     pub fn theme_nav_buffer(&mut self, lua: &mlua::Lua) -> LuaResult<()> {
         let theme = &self.theme;
-        LuaApi::buf_clear_namespace(lua, self.buf.id(), theme.navigation_ns, 0, -1)?;
-        //self.buf.clear_namespace(self.theme.navigation_ns, 0i32..-1i32);
+        NvApi::buf_clear_namespace(lua, self.buf.id(), theme.navigation_ns, 0, -1)?;
 
         if self.buf_content.is_empty() {
             // TODO cursorline false
-            let ui = &LuaApi::list_uis(lua)?[0];
+            let ui = &NvApi::list_uis(lua)?[0];
+            self.win.set_option(lua, "cursorline", false)?;
 
             let text = "Traveller - (Empty directory)".to_string();
             let width = text.len() as u32;
@@ -60,7 +54,7 @@ impl AppState {
             virt_text_item.push(text)?;
             virt_text_item.push("Comment")?;
 
-            let opts = LuaApi::buf_extmark_opts(
+            let opts = NvApi::buf_extmark_opts(
                 lua,
                 ExtmarkOpts {
                     id: Some(1),
@@ -71,7 +65,18 @@ impl AppState {
                 },
             )?;
 
-            LuaApi::buf_set_extmark(lua, self.buf.id(), theme.navigation_ns, 0, 0, opts)?;
+            NvApi::buf_set_extmark(lua, self.buf.id(), theme.navigation_ns, 0, 0, opts)?;
+        } else {
+            self.win.set_option(lua, "cursorline", true)?;
+        }
+
+        for (i, item_name) in self.buf_content.iter().enumerate() {
+            if item_name.ends_with("/") {
+                self.buf
+                    .add_highlight(lua, theme.navigation_ns as i32, "Directory", i, 0, -1)?;
+            }
+
+            // TODO: selection Highlight!
         }
 
         Ok(())

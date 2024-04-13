@@ -1,5 +1,5 @@
-use crate::lua_api_types::{Buffer, Mode, Window};
-use crate::{lua_api::*, theme::Theme};
+use crate::neo_api_types::{Buffer, Mode, Window};
+use crate::{neo_api::NeoApi, theme::Theme};
 use mlua::prelude::*;
 use std::{
     fs::{self, DirEntry},
@@ -59,30 +59,29 @@ impl AppState {
     }
 
     pub fn open_navigation(&mut self, lua: &Lua) -> LuaResult<()> {
-        self.buf = LuaApi::create_buf(lua, false, true)?;
+        self.buf = NeoApi::create_buf(lua, false, true)?;
 
-        self.buf.set_option(lua, "bufhidden", "wipe")?;
-        LuaApi::notify(lua, &"test1")?;
-        self.cwd = LuaApi::get_cwd(lua)?;
-        self.history_dir = LuaApi::stdpath(lua, StdpathType::State)?;
-        self.win = LuaApi::get_current_win(lua)?;
+        self.buf.set_option_value(lua, "bufhidden", "wipe")?;
+        self.cwd = NeoApi::get_cwd(lua)?;
+        self.history_dir = NeoApi::stdpath(lua, StdpathType::State)?;
+        self.win = NeoApi::get_current_win(lua)?;
 
-        LuaApi::set_current_buf(lua, self.buf)?;
+        NeoApi::set_current_buf(lua, self.buf)?;
 
         // Set buffer content
-        self.buf.set_option(lua, "modifiable", true)?;
+        self.buf.set_option_value(lua, "modifiable", true)?;
         self.buf_content = nav_buffer_lines(&self.cwd)?;
-        LuaApi::buf_set_lines(lua, self.buf.id(), 0, -1, true, self.buf_content.clone())?;
-        self.buf.set_option(lua, "modifiable", false)?;
+        NeoApi::buf_set_lines(lua, self.buf.id(), 0, -1, true, self.buf_content.clone())?;
+        self.buf.set_option_value(lua, "modifiable", false)?;
 
         self.theme_nav_buffer(lua)?;
 
         // Display in bar below
         Self::set_buf_name_navigator(lua)?;
 
-        let km_opts = LuaApi::buf_keymap_opts(lua, true, self.buf.id())?;
+        let km_opts = NeoApi::buf_keymap_opts(lua, true, self.buf.id())?;
 
-        LuaApi::set_keymap(
+        NeoApi::set_keymap(
             lua,
             Mode::Normal,
             "q",
