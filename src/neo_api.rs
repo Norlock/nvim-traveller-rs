@@ -1,7 +1,7 @@
 use super::neo_api_types::ExtmarkOpts;
 use crate::neo_api_types::{Buffer, LogLevel, Mode, OptValueType, StdpathType, Ui, Window};
 use mlua::Table;
-use mlua::{prelude::LuaResult, IntoLua};
+use mlua::{prelude::{LuaResult, LuaTable, LuaValue}, IntoLua};
 use std::path::PathBuf;
 
 pub struct NeoApi;
@@ -13,6 +13,25 @@ impl NeoApi {
         let buf_id: u32 = lfn.call::<(bool, bool), u32>((listed, scratch))?;
 
         Ok(Buffer::new(buf_id))
+    }
+
+    /**
+    nvim_buf_delete({buffer}, {opts})
+    Deletes the buffer. See |:bwipeout|
+
+    Attributes: ~
+        not allowed when |textlock| is active or in the |cmdwin|
+
+    Parameters: ~
+      • {buffer}  Buffer handle, or 0 for current buffer
+      • {opts}    Optional parameters. Keys:
+                  • force: Force deletion and ignore unsaved changes.
+                  • unload: Unloaded only, do not delete. See |:bunload|
+    */
+    pub fn buf_delete<'a>(lua: &'a mlua::Lua, buf_id: u32, opts: Option<LuaTable<'a>>) -> LuaResult<()> {
+        let lfn: mlua::Function = lua.load("vim.api.nvim_buf_delete").eval()?;
+
+        Ok(lfn.call::<(u32, Option<LuaTable>), ()>((buf_id, opts))?)
     }
 
     /**
@@ -264,11 +283,12 @@ impl NeoApi {
         ns_id: u32,
         line: u32,
         col: u32,
-        opts: Table<'a>,
+        opts: ExtmarkOpts,
     ) -> mlua::Result<()> {
         let lfn: mlua::Function = lua.load("vim.api.nvim_buf_set_extmark").eval()?;
 
-        Ok(lfn.call::<(u32, u32, u32, u32, mlua::Table), ()>((buf_id, ns_id, line, col, opts))?)
+        let opts: LuaValue = opts.into_lua(lua)?;
+        Ok(lfn.call::<(u32, u32, u32, u32, LuaValue), ()>((buf_id, ns_id, line, col, opts))?)
     }
 
     pub fn set_keymap<'a>(

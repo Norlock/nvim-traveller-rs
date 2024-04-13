@@ -1,4 +1,4 @@
-use crate::neo_api_types::{Buffer, Mode, Window};
+use crate::neo_api_types::{Buffer, Mode, StdpathType, Window};
 use crate::{neo_api::NeoApi, theme::Theme};
 use mlua::prelude::*;
 use std::{
@@ -79,24 +79,33 @@ impl AppState {
         // Display in bar below
         Self::set_buf_name_navigator(lua)?;
 
-        let km_opts = NeoApi::buf_keymap_opts(lua, true, self.buf.id())?;
-
-        NeoApi::set_keymap(
-            lua,
-            Mode::Normal,
-            "q",
-            lua.create_function(Self::close_navigation)?,
-            km_opts,
-        )?;
+        self.add_keymaps(lua)?;
 
         Ok(())
     }
 
-    fn close_navigation(lua: &Lua, _: ()) -> mlua::prelude::LuaResult<()> {
-        let lfn: mlua::Function = lua.load("vim.cmd.e").eval()?;
+    fn add_keymaps(&self, lua: &Lua) -> LuaResult<()> {
+        let km_opts = NeoApi::buf_keymap_opts(lua, true, self.buf.id())?;
 
-        Ok(lfn.call::<&str, ()>("#")?)
+        let close_navigation = lua.create_function(close_navigation)?;
+        NeoApi::set_keymap(lua, Mode::Normal, "q", close_navigation, km_opts)?;
+
+        //NeoApi::set_keymap(
+        //lua,
+        //Mode::Normal,
+        //"h",
+        //lua.create_function(Self::close_navigation)?,
+        //km_opts,
+        //)?;
+
+        Ok(())
     }
+}
+
+fn close_navigation(lua: &Lua, _: ()) -> mlua::prelude::LuaResult<()> {
+    let lfn: mlua::Function = lua.load("vim.cmd.e").eval()?;
+
+    Ok(lfn.call::<&str, ()>("#")?)
 }
 
 fn nav_buffer_lines(path: &PathBuf) -> LuaResult<Vec<String>> {

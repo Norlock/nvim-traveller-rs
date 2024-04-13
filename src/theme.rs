@@ -1,4 +1,4 @@
-use crate::{lua_api::NvApi, lua_api_types::ExtmarkOpts, state::AppState};
+use crate::{neo_api::NeoApi, neo_api_types::ExtmarkOpts, state::AppState};
 use mlua::prelude::LuaResult;
 
 #[derive(Debug)]
@@ -13,10 +13,10 @@ pub struct Theme {
 impl Theme {
     pub fn init(&mut self, lua: &mlua::Lua) -> LuaResult<()> {
         if !self.init {
-            self.navigation_ns = NvApi::create_namespace(lua, "TravellerNavigation")?;
-            self.popup_ns = NvApi::create_namespace(lua, "TravellerInfo")?;
-            self.help_ns = NvApi::create_namespace(lua, "TravellerHelp")?;
-            self.status_ns = NvApi::create_namespace(lua, "TravellerStatus")?;
+            self.navigation_ns = NeoApi::create_namespace(lua, "TravellerNavigation")?;
+            self.popup_ns = NeoApi::create_namespace(lua, "TravellerInfo")?;
+            self.help_ns = NeoApi::create_namespace(lua, "TravellerHelp")?;
+            self.status_ns = NeoApi::create_namespace(lua, "TravellerStatus")?;
             self.init = true;
         }
 
@@ -39,11 +39,11 @@ impl Default for Theme {
 impl AppState {
     pub fn theme_nav_buffer(&mut self, lua: &mlua::Lua) -> LuaResult<()> {
         let theme = &self.theme;
-        NvApi::buf_clear_namespace(lua, self.buf.id(), theme.navigation_ns, 0, -1)?;
+        NeoApi::buf_clear_namespace(lua, self.buf.id(), theme.navigation_ns, 0, -1)?;
 
         if self.buf_content.is_empty() {
             // TODO cursorline false
-            let ui = &NvApi::list_uis(lua)?[0];
+            let ui = &NeoApi::list_uis(lua)?[0];
             self.win.set_option(lua, "cursorline", false)?;
 
             let text = "Traveller - (Empty directory)".to_string();
@@ -54,18 +54,15 @@ impl AppState {
             virt_text_item.push(text)?;
             virt_text_item.push("Comment")?;
 
-            let opts = NvApi::buf_extmark_opts(
-                lua,
-                ExtmarkOpts {
-                    id: Some(1),
-                    end_row: Some(0),
-                    virt_text: Some(vec![virt_text_item]),
-                    virt_text_win_col: Some(center),
-                    ..Default::default()
-                },
-            )?;
+            let opts = ExtmarkOpts {
+                id: Some(1),
+                end_row: Some(0),
+                virt_text: Some(vec![virt_text_item]),
+                virt_text_win_col: Some(center),
+                ..Default::default()
+            };
 
-            NvApi::buf_set_extmark(lua, self.buf.id(), theme.navigation_ns, 0, 0, opts)?;
+            NeoApi::buf_set_extmark(lua, self.buf.id(), theme.navigation_ns, 0, 0, opts)?;
         } else {
             self.win.set_option(lua, "cursorline", true)?;
         }

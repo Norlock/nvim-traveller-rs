@@ -4,7 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::neo_api::NeoApi;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all="snake_case")]
 pub enum VirtTextPos {
     Eol,
     Overlay,
@@ -12,7 +13,8 @@ pub enum VirtTextPos {
     Inline,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all="snake_case")]
 pub enum HlMode {
     Replace,
     Combine,
@@ -66,7 +68,8 @@ impl std::fmt::Debug for StdpathType {
 }
 
 
-#[derive(Debug, Default)]
+#[derive(Debug, Serialize, Default)]
+/// Pleas help to add more and test
 pub struct ExtmarkOpts<'lua> {
     pub id: Option<u32>,
     pub end_row: Option<i32>,
@@ -74,11 +77,21 @@ pub struct ExtmarkOpts<'lua> {
     pub hl_group: Option<String>,
     pub hl_eol: Option<bool>,
     pub virt_text: Option<Vec<mlua::Table<'lua>>>,
-    pub virt_text_pos: Option<VirtTextPos>,
+    //pub virt_text_pos: Option<VirtTextPos>,
     pub virt_text_win_col: Option<u32>,
-    pub hl_mode: Option<HlMode>,
+    //pub hl_mode: Option<HlMode>,
     pub virt_lines_above: Option<bool>,
-    // TODO more
+}
+
+impl<'a> IntoLua<'a> for ExtmarkOpts<'a> {
+    fn into_lua(self, lua: &'a Lua) -> LuaResult<LuaValue<'a>> {
+        let mut ser_opts = LuaSerializeOptions::new();
+        ser_opts.serialize_none_to_null = false;
+        ser_opts.serialize_unit_to_null = false;
+
+        lua.to_value_with(&self, ser_opts)
+    }
+    
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -143,7 +156,7 @@ impl Window {
         key: &str,
         value: V,
     ) -> LuaResult<()> {
-        NvApi::set_option_value(lua, key, value, OptValueType::Window(*self))
+        NeoApi::set_option_value(lua, key, value, OptValueType::Window(*self))
     }
 }
 
