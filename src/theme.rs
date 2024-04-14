@@ -39,10 +39,10 @@ impl Default for Theme {
 impl AppState {
     pub fn theme_nav_buffer(&mut self, lua: &mlua::Lua) -> LuaResult<()> {
         let theme = &self.theme;
-        NeoApi::buf_clear_namespace(lua, self.buf.id(), theme.navigation_ns, 0, -1)?;
+
+        self.buf.clear_namespace(lua, theme.navigation_ns as i32, 0, -1)?;
 
         if self.buf_content.is_empty() {
-            // TODO cursorline false
             let ui = &NeoApi::list_uis(lua)?[0];
             self.win.set_option_value(lua, "cursorline", false)?;
 
@@ -62,7 +62,7 @@ impl AppState {
                 ..Default::default()
             };
 
-            NeoApi::buf_set_extmark(lua, self.buf.id(), theme.navigation_ns, 0, 0, opts)?;
+            self.buf.set_extmarks(lua, theme.navigation_ns, 0, 0, opts)?;
         } else {
             self.win.set_option_value(lua, "cursorline", true)?;
         }

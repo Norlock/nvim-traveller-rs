@@ -220,6 +220,18 @@ impl NeoApi {
         Ok(lfn.call::<&str, String>("%")?.into())
     }
 
+    pub fn get_filename(lua: &mlua::Lua) -> LuaResult<String> {
+        let lfn: mlua::Function = lua.load("vim.fn.expand").eval()?;
+
+        lfn.call::<&str, String>("%:p:t")
+    }
+
+    pub fn get_filedir(lua: &mlua::Lua) -> LuaResult<PathBuf> {
+        let lfn: mlua::Function = lua.load("vim.fn.expand").eval()?;
+
+        Ok(lfn.call::<&str, String>("%:p:h")?.into())
+    }
+
     /**
     Returns |standard-path| locations of various default files and directories.
 
@@ -324,16 +336,30 @@ impl NeoApi {
         Ok(table)
     }
 
+    /**
+    Clears |namespace|d objects (highlights, |extmarks|, virtual text) from a
+    region.
+
+    Lines are 0-indexed. |api-indexing| To clear the namespace in the entire
+    buffer, specify line_start=0 and line_end=-1.
+
+    Parameters: ~
+      • {buffer}      Buffer handle, or 0 for current buffer
+      • {ns_id}       Namespace to clear, or -1 to clear all namespaces.
+      • {line_start}  Start of range of lines to clear
+      • {line_end}    End of range of lines to clear (exclusive) or -1 to
+                      clear to end of buffer.
+    */
     pub fn buf_clear_namespace(
         lua: &mlua::Lua,
         buf_id: u32,
-        ns: u32,
-        start: i32,
+        ns_id: i32,
+        start: u32,
         end: i32,
     ) -> mlua::Result<()> {
         let lfn: mlua::Function = lua.load("vim.api.nvim_buf_clear_namespace").eval()?;
 
-        lfn.call::<(u32, u32, i32, i32), ()>((buf_id, ns, start, end))
+        lfn.call::<(u32, i32, u32, i32), ()>((buf_id, ns_id, start, end))
     }
 
     /**

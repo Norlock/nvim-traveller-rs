@@ -122,7 +122,10 @@ pub struct WinCursor {
 impl WinCursor {
     /// Create a cursor where the passed row argument starts from 0
     pub fn from_zero_indexed(row: u32, column: u32) -> Self {
-        Self { row: row + 1, column }
+        Self {
+            row: row + 1,
+            column,
+        }
     }
 
     /// Create a cursor where the passed row argument starts from 1
@@ -384,6 +387,58 @@ impl Buffer {
     ) -> mlua::Result<()> {
         NeoApi::buf_set_lines(lua, self.id(), start, end, strict_indexing, lines)
     }
+
+    /**
+    Creates or updates an |extmark|.
+
+    By default a new extmark is created when no id is passed in, but it is
+    also possible to create a new mark by passing in a previously unused id or
+    move an existing mark by passing in its id. The caller must then keep
+    track of existing and unused ids itself. (Useful over RPC, to avoid
+    waiting for the return value.)
+
+    Using the optional arguments, it is possible to use this to highlight a
+    range of text, and also to associate virtual text to the mark.
+
+    If present, the position defined by `end_col` and `end_row` should be
+    after the start position in order for the extmark to cover a range. An
+    earlier end position is not an error, but then it behaves like an empty
+    range (no highlighting).
+
+    Parameters: ~
+      • {buffer}  Buffer handle, or 0 for current buffer
+      • {ns_id}   Namespace id from |nvim_create_namespace()|
+      • {line}    Line where to place the mark, 0-based. |api-indexing|
+      • {col}     Column where to place the mark, 0-based. |api-indexing|
+      • {opts}    Optional parameters.
+    */
+    pub fn set_extmarks<'a>(
+        &self,
+        lua: &'a Lua,
+        ns_id: u32,
+        line: u32,
+        col: u32,
+        opts: ExtmarkOpts<'a>,
+    ) -> LuaResult<()> {
+        NeoApi::buf_set_extmark(lua, self.id(), ns_id, line, col, opts)
+    }
+
+    /**
+    Clears |namespace|d objects (highlights, |extmarks|, virtual text) from a
+    region.
+
+    Lines are 0-indexed. |api-indexing| To clear the namespace in the entire
+    buffer, specify line_start=0 and line_end=-1.
+
+    Parameters: ~
+      • {ns_id}       Namespace to clear, or -1 to clear all namespaces.
+      • {line_start}  Start of range of lines to clear
+      • {line_end}    End of range of lines to clear (exclusive) or -1 to
+                      clear to end of buffer.
+    */
+    pub fn clear_namespace(&self, lua: &Lua, ns_id: i32, start: u32, end: i32) -> LuaResult<()> {
+        NeoApi::buf_clear_namespace(lua, self.id(), ns_id, start, end)
+    }
 }
 
 impl<'lua> FromLua<'lua> for Ui {
@@ -393,4 +448,43 @@ impl<'lua> FromLua<'lua> for Ui {
     ) -> mlua::prelude::LuaResult<Self> {
         lua.from_value(value)
     }
+}
+
+#[derive(Clone, Debug)]
+pub enum AutoCmdGroup {
+    String(String),
+    Integer(u32),
+}
+
+#[derive(Debug, Default)]
+pub struct AutoCmdOpts<'a> {
+    /// Autocommand group name or id to match against.
+    pub group: Option<AutoCmdGroup>,
+
+    /// Optional: pattern(s) to match literally |autocmd-pattern|.
+    pub pattern: Vec<String>,
+
+    /// Optional: buffer number for buffer-local
+    /// autocommands |autocmd-buflocal|. Cannot be used with {pattern}
+    pub buffer: Option<u32>,
+
+    /// description (for documentation and troubleshooting).
+    pub desc: Option<String>,
+
+    /**
+    Lua function called when the event(s) is triggered.
+    Lua callback can return a truthy value (not `false` or `nil`) to delete the autocommand.
+    Receives a table argument with these keys:
+    • id: (number) autocommand id
+    • event: (string) name of the triggered event |autocmd-events|
+    • group: (number|nil) autocommand group id, if any
+    • match: (string) expanded value of <amatch>
+    • buf: (number) expanded value of <abuf>
+    • file: (string) expanded value of <afile>
+    • data: (any) arbitrary data passed from |nvim_exec_autocmds()|
+     */
+    pub callback: Option<LuaFunction<'a>>,
+
+    /// defaults to false. Run the autocommand only once |autocmd-once|.
+    pub once: bool,
 }
