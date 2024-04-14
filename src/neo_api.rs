@@ -188,6 +188,12 @@ impl NeoApi {
         lfn.call::<u32, WinCursor>(win_id)
     }
 
+    pub fn set_cwd(lua: &mlua::Lua, path: &PathBuf) -> LuaResult<()> {
+        let lfn: mlua::Function = lua.load("vim.api.nvim_set_current_dir").eval()?;
+
+        lfn.call::<String, ()>(path.to_string_lossy().to_string())
+    }
+
     pub fn get_cwd(lua: &mlua::Lua) -> LuaResult<PathBuf> {
         let lfn: mlua::Function = lua.load("vim.fn.getcwd").eval()?;
 

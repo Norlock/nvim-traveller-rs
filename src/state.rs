@@ -1,4 +1,5 @@
 use crate::neo_api_types::{Buffer, Mode, OpenIn, StdpathType, Window};
+use crate::utils::Utils;
 use crate::CONTAINER;
 use crate::{neo_api::NeoApi, theme::Theme};
 use mlua::prelude::*;
@@ -88,13 +89,15 @@ impl AppState {
         let nav_to_parent = lua.create_async_function(navigate_to_parent)?;
         NeoApi::set_keymap(lua, Mode::Normal, "h", nav_to_parent, km_opts.clone())?;
 
-        let action_on_item = lua.create_async_function(item_action_on_buffer)?;
-        NeoApi::set_keymap(lua, Mode::Normal, "l", action_on_item, km_opts)?;
+        let open_item_in_buffer = lua.create_async_function(open_item_in_buffer)?;
+        NeoApi::set_keymap(lua, Mode::Normal, "l", open_item_in_buffer, km_opts)?;
 
         Ok(())
     }
 
     fn set_buffer_content(&mut self, lua: &Lua) -> LuaResult<()> {
+        NeoApi::set_cwd(lua, &self.cwd)?;
+
         self.buf.set_option_value(lua, "modifiable", true)?;
         self.buf_content = nav_buffer_lines(&self.cwd)?;
         NeoApi::buf_set_lines(lua, self.buf.id(), 0, -1, true, self.buf_content.clone())?;
@@ -113,23 +116,23 @@ async fn navigate_to_parent(lua: &Lua, _: ()) -> LuaResult<()> {
     app.set_buffer_content(lua)
 }
 
-async fn item_action_on_buffer(lua: &Lua, _: ()) -> LuaResult<()> {
-    item_action(lua, OpenIn::Buffer).await
+async fn open_item_in_buffer(lua: &Lua, _: ()) -> LuaResult<()> {
+    open_item(lua, OpenIn::Buffer).await
 }
 
-async fn item_action_on_tab(lua: &Lua, _: ()) -> LuaResult<()> {
-    item_action(lua, OpenIn::Tab).await
+async fn open_item_in_tab(lua: &Lua, _: ()) -> LuaResult<()> {
+    open_item(lua, OpenIn::Tab).await
 }
 
-async fn item_action_on_v_split(lua: &Lua, _: ()) -> LuaResult<()> {
-    item_action(lua, OpenIn::VSplit).await
+async fn open_item_in_vsplit(lua: &Lua, _: ()) -> LuaResult<()> {
+    open_item(lua, OpenIn::VSplit).await
 }
 
-async fn item_action_on_h_split(lua: &Lua, _: ()) -> LuaResult<()> {
-    item_action(lua, OpenIn::HSplit).await
+async fn open_item_in_hsplit(lua: &Lua, _: ()) -> LuaResult<()> {
+    open_item(lua, OpenIn::HSplit).await
 }
 
-async fn item_action(lua: &Lua, open_in: OpenIn) -> LuaResult<()> {
+async fn open_item(lua: &Lua, open_in: OpenIn) -> LuaResult<()> {
     let mut app = CONTAINER.0.write().await;
 
     let cursor = NeoApi::win_get_cursor(lua, 0)?;
@@ -152,8 +155,13 @@ async fn item_action(lua: &Lua, open_in: OpenIn) -> LuaResult<()> {
         app.cwd.push(item);
         app.set_buffer_content(lua)
     } else {
-        // Set git root.
-        NeoApi::open_file(lua, open_in, &item)
+        NeoApi::open_file(lua, open_in, &item)?;
+
+        if let Some(git_root) = Utils::git_root(&app.cwd) {
+            NeoApi::set_cwd(lua, &git_root)?;
+        } 
+
+        Ok(())
     }
 }
 

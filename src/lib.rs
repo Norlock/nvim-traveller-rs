@@ -6,6 +6,7 @@ mod neo_api;
 mod neo_api_types;
 mod state;
 mod theme;
+mod utils;
 
 #[macro_use]
 extern crate lazy_static;
