@@ -165,7 +165,8 @@ impl<'a> IntoLua<'a> for WinCursor {
         let table = lua.create_table()?;
         table.set(1, self.row);
         table.set(2, self.column);
-        lua.to_value(&table)
+        
+        Ok(LuaValue::Table(table))
     }
 }
 
@@ -211,7 +212,7 @@ impl Mode {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Window(u32);
 
 impl Window {
@@ -248,7 +249,7 @@ impl Window {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Buffer(u32);
 
 impl Buffer {
@@ -406,7 +407,6 @@ impl Buffer {
     range (no highlighting).
 
     Parameters: ~
-      • {buffer}  Buffer handle, or 0 for current buffer
       • {ns_id}   Namespace id from |nvim_create_namespace()|
       • {line}    Line where to place the mark, 0-based. |api-indexing|
       • {col}     Column where to place the mark, 0-based. |api-indexing|
@@ -450,10 +450,297 @@ impl<'lua> FromLua<'lua> for Ui {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct AutoCmd(u32);
+
+impl AutoCmd {
+    pub fn new(id: u32) -> Self {
+        Self(id)
+    }
+
+    pub fn id(&self) -> u32 {
+        self.0
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum AutoCmdGroup {
     String(String),
     Integer(u32),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AutoCmdEvent {
+    /// After adding a buffer to the buffer list.
+    BufAdd,
+    /// Deleting a buffer from the buffer list.
+    BufDelete,
+    /// After entering a buffer.
+    BufEnter,
+    /// After renaming a buffer.
+    BufFilePost,
+    /// Before renaming a buffer.
+    BufFilePre,
+    /// Just after buffer becomes hidden.
+    BufHidden,
+    /// Before leaving a buffer.
+    BufLeave,
+    /// After the 'modified' state of a buffer changes.
+    BufModifiedSet,
+    /// After creating any buffer.
+    BufNew,
+    /// When creating a buffer for a new file.
+    BufNewFile,
+    /// Read buffer using command.
+    BufReadCmd,
+    /// After reading a buffer.
+    BufReadPost,
+    /// Before reading a buffer.
+    BufReadPre,
+    /// Just before unloading a buffer.
+    BufUnload,
+    /// After showing a buffer in a window.
+    BufWinEnter,
+    /// Just after buffer removed from window.
+    BufWinLeave,
+    /// Just before really deleting a buffer.
+    BufWipeout,
+    /// Write buffer using command.
+    BufWriteCmd,
+    /// After writing a buffer.
+    BufWritePost,
+    /// Before writing a buffer.
+    BufWritePre,
+    /// Info was received about channel.
+    ChanInfo,
+    /// Channel was opened.
+    ChanOpen,
+    /// Command undefined.
+    CmdUndefined,
+    /// After entering the cmdline window.
+    CmdWinEnter,
+    /// Before leaving the cmdline window.
+    CmdWinLeave,
+    /// Command line was modified.
+    CmdlineChanged,
+    /// After entering cmdline mode.
+    CmdlineEnter,
+    /// Before leaving cmdline mode.
+    CmdlineLeave,
+    /// After loading a colorscheme.
+    ColorScheme,
+    /// Before loading a colorscheme.
+    ColorSchemePre,
+    /// After popup menu changed.
+    CompleteChanged,
+    /// After finishing insert complete.
+    CompleteDone,
+    /// Idem, before clearing info.
+    CompleteDonePre,
+    /// Cursor in same position for a while.
+    CursorHold,
+    /// Idem, in Insert mode.
+    CursorHoldI,
+    /// Cursor was moved.
+    CursorMoved,
+    /// Cursor was moved in Insert mode.
+    CursorMovedI,
+    /// Diagnostics in a buffer were modified.
+    DiagnosticChanged,
+    /// Diffs have been updated.
+    DiffUpdated,
+    /// Directory changed.
+    DirChanged,
+    /// Directory is going to change.
+    DirChangedPre,
+    /// After changing the 'encoding' option.
+    EncodingChanged,
+    /// Before exiting.
+    ExitPre,
+    /// Append to a file using command.
+    FileAppendCmd,
+    /// After appending to a file.
+    FileAppendPost,
+    /// Before appending to a file.
+    FileAppendPre,
+    /// Before first change to read-only file.
+    FileChangedRO,
+    /// After shell command that changed file.
+    FileChangedShell,
+    /// After (not) reloading changed file.
+    FileChangedShellPost,
+    /// Read from a file using command.
+    FileReadCmd,
+    /// After reading a file.
+    FileReadPost,
+    /// Before reading a file.
+    FileReadPre,
+    /// New file type detected (user defined).
+    FileType,
+    /// Write to a file using command.
+    FileWriteCmd,
+    /// After writing a file.
+    FileWritePost,
+    /// Before writing a file.
+    FileWritePre,
+    /// After reading from a filter.
+    FilterReadPost,
+    /// Before reading from a filter.
+    FilterReadPre,
+    /// After writing to a filter.
+    FilterWritePost,
+    /// Before writing to a filter.
+    FilterWritePre,
+    /// Got the focus.
+    FocusGained,
+    /// Lost the focus to another app.
+    FocusLost,
+    /// If calling a function which doesn't exist.
+    FuncUndefined,
+    /// After starting the GUI.
+    GUIEnter,
+    /// After starting the GUI failed.
+    GUIFailed,
+    /// When changing Insert/Replace mode.
+    InsertChange,
+    /// Before inserting a char.
+    InsertCharPre,
+    /// When entering Insert mode.
+    InsertEnter,
+    /// Just after leaving Insert mode.
+    InsertLeave,
+    /// Just before leaving Insert mode.
+    InsertLeavePre,
+    /// After an LSP client attaches to a buffer.
+    LspAttach,
+    /// After an LSP client detaches from a buffer.
+    LspDetach,
+    /// After an LSP request is started, canceled, or completed.
+    LspRequest,
+    /// After an LSP notice has been sent to the server.
+    LspNotify,
+    /// After a visible LSP token is updated.
+    LspTokenUpdate,
+    /// After a LSP progress update.
+    LspProgress,
+    /// Just before popup menu is displayed.
+    MenuPopup,
+    /// After changing the mode.
+    ModeChanged,
+    /// After setting any option.
+    OptionSet,
+    /// After :make, :grep etc.
+    QuickFixCmdPost,
+    /// Before :make, :grep etc.
+    QuickFixCmdPre,
+    /// Before :quit.
+    QuitPre,
+    /// When starting to record a macro.
+    RecordingEnter,
+    /// Just before a macro stops recording.
+    RecordingLeave,
+    /// Upon string reception from a remote vim.
+    RemoteReply,
+    /// Going to wait for a character.
+    SafeState,
+    /// After the search wrapped around.
+    SearchWrapped,
+    /// After loading a session file.
+    SessionLoadPost,
+    /// After writing a session file.
+    SessionWritePost,
+    /// After ":!cmd".
+    ShellCmdPost,
+    /// After ":1,2!cmd", ":w !cmd", ":r !cmd".
+    ShellFilterPost,
+    /// After nvim process received a signal.
+    Signal,
+    /// Sourcing a Vim script using command.
+    SourceCmd,
+    /// After sourcing a Vim script.
+    SourcePost,
+    /// Before sourcing a Vim script.
+    SourcePre,
+    /// Spell file missing.
+    SpellFileMissing,
+    /// After reading from stdin.
+    StdinReadPost,
+    /// Before reading from stdin.
+    StdinReadPre,
+    /// Found existing swap file.
+    SwapExists,
+    /// Syntax selected.
+    Syntax,
+    /// After a tab has closed.
+    TabClosed,
+    /// After entering a tab page.
+    TabEnter,
+    /// Before leaving a tab page.
+    TabLeave,
+    /// When creating a new tab.
+    TabNew,
+    /// After entering a new tab.
+    TabNewEntered,
+    /// After changing 'term'.
+    TermChanged,
+    /// After the process exits.
+    TermClose,
+    /// After entering Terminal mode.
+    TermEnter,
+    /// After leaving Terminal mode.
+    TermLeave,
+    /// After opening a terminal buffer.
+    TermOpen,
+    /// After an unhandled OSC sequence is emitted.
+    TermRequest,
+    /// After setting "v:termresponse".
+    TermResponse,
+    /// Text was modified.
+    TextChanged,
+    /// Text was modified in Insert mode(no popup).
+    TextChangedI,
+    /// Text was modified in Insert mode(popup).
+    TextChangedP,
+    /// Text was modified in Terminal mode.
+    TextChangedT,
+    /// After a yank or delete was done (y, d, c).
+    TextYankPost,
+    /// After UI attaches.
+    UIEnter,
+    /// After UI detaches.
+    UILeave,
+    /// User defined autocommand.
+    User,
+    /// After starting Vim.
+    VimEnter,
+    /// Before exiting Vim.
+    VimLeave,
+    /// Before exiting Vim and writing ShaDa file.
+    VimLeavePre,
+    /// After Vim window was resized.
+    VimResized,
+    /// After Nvim is resumed.
+    VimResume,
+    /// Before Nvim is suspended.
+    VimSuspend,
+    /// After closing a window.
+    WinClosed,
+    /// After entering a window.
+    WinEnter,
+    /// Before leaving a window.
+    WinLeave,
+    /// When entering a new window.
+    WinNew,
+    /// After a window was resized.
+    WinResized,
+    /// After a window was scrolled or resized.
+    WinScrolled,
+}
+
+impl Display for AutoCmdEvent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&format!("{self:?}"))
+    }
 }
 
 #[derive(Debug, Default)]
@@ -487,4 +774,36 @@ pub struct AutoCmdOpts<'a> {
 
     /// defaults to false. Run the autocommand only once |autocmd-once|.
     pub once: bool,
+}
+
+impl<'a> IntoLua<'a> for AutoCmdOpts<'a> {
+    fn into_lua(self, lua: &'a Lua) -> LuaResult<LuaValue<'a>> {
+        let table = lua.create_table()?;
+
+        match self.group {
+            Some(AutoCmdGroup::String(name)) => table.set("group", name)?,
+            Some(AutoCmdGroup::Integer(id)) => table.set("group", id)?,
+            None => {}
+        };
+
+        if !self.pattern.is_empty() {
+            table.set("pattern", self.pattern)?;
+        }
+
+        if let Some(buf_id) = self.buffer {
+            table.set("buffer", buf_id)?;
+        }
+
+        if let Some(desc) = self.desc {
+            table.set("desc", desc)?;
+        }
+
+        if let Some(cb) = self.callback {
+            table.set("callback", cb)?;
+        }
+
+        table.set("once", self.once)?;
+
+        Ok(LuaValue::Table(table))
+    }
 }

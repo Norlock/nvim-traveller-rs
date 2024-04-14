@@ -1,12 +1,12 @@
 use super::neo_api_types::ExtmarkOpts;
 use crate::neo_api_types::{
-    Buffer, LogLevel, Mode, OpenIn, OptValueType, StdpathType, Ui, WinCursor, Window,
+    AutoCmd, AutoCmdEvent, AutoCmdOpts, Buffer, LogLevel, Mode, OpenIn, OptValueType, StdpathType, Ui, WinCursor, Window
 };
-use mlua::{Lua, Table};
 use mlua::{
-    prelude::{LuaError, LuaResult, LuaTable, LuaValue},
+    prelude::{LuaError, LuaFunction, LuaResult, LuaTable, LuaValue},
     IntoLua,
 };
+use mlua::{Lua, Table};
 use std::path::PathBuf;
 
 pub struct NeoApi;
@@ -29,7 +29,7 @@ impl NeoApi {
       • buf_open_scratch
     */
     pub fn create_buf(lua: &mlua::Lua, listed: bool, scratch: bool) -> LuaResult<Buffer> {
-        let lfn: mlua::Function = lua.load("vim.api.nvim_create_buf").eval()?;
+        let lfn: LuaFunction = lua.load("vim.api.nvim_create_buf").eval()?;
         let buf_id: u32 = lfn.call::<(bool, bool), u32>((listed, scratch))?;
 
         if buf_id == 0 {
@@ -57,7 +57,7 @@ impl NeoApi {
         buf_id: u32,
         opts: Option<LuaTable<'a>>,
     ) -> LuaResult<()> {
-        let lfn: mlua::Function = lua.load("vim.api.nvim_buf_delete").eval()?;
+        let lfn: LuaFunction = lua.load("vim.api.nvim_buf_delete").eval()?;
 
         // Bug in nvim API, it won't allow opts not being passed, so create an empty table
         let opts = if opts.is_none() {
@@ -80,7 +80,7 @@ impl NeoApi {
       • {msg}    Content of the notification to show to the user.
     */
     pub fn notify(lua: &mlua::Lua, display: &impl std::fmt::Debug) -> LuaResult<()> {
-        let lfn: mlua::Function = lua.load("vim.notify").eval()?;
+        let lfn: LuaFunction = lua.load("vim.notify").eval()?;
 
         lfn.call::<String, ()>(format!("{display:?}"))
     }
@@ -101,7 +101,7 @@ impl NeoApi {
         display: &impl std::fmt::Debug,
         level: LogLevel,
     ) -> LuaResult<()> {
-        let lfn: mlua::Function = lua.load("vim.notify").eval()?;
+        let lfn: LuaFunction = lua.load("vim.notify").eval()?;
 
         lfn.call::<(String, usize), ()>((format!("{display:?}"), level as usize))
     }
@@ -128,7 +128,7 @@ impl NeoApi {
         value: V,
         opt_type: OptValueType,
     ) -> LuaResult<()> {
-        let lfn: mlua::Function = lua.load("vim.api.nvim_set_option_value").eval()?;
+        let lfn: LuaFunction = lua.load("vim.api.nvim_set_option_value").eval()?;
 
         let opts = lua.create_table()?;
 
@@ -141,7 +141,7 @@ impl NeoApi {
     }
 
     pub fn get_current_win(lua: &mlua::Lua) -> LuaResult<Window> {
-        let lfn: mlua::Function = lua.load("vim.api.nvim_get_current_win").eval()?;
+        let lfn: LuaFunction = lua.load("vim.api.nvim_get_current_win").eval()?;
         let win_id = lfn.call::<(), u32>(())?;
 
         Ok(Window::new(win_id))
@@ -160,13 +160,13 @@ impl NeoApi {
     &emsp; not allowed when |textlock| is active or in the |cmdwin|
     */
     pub fn set_current_win(lua: &mlua::Lua, win_id: u32) -> LuaResult<()> {
-        let lfn: mlua::Function = lua.load("vim.api.nvim_set_current_win").eval()?;
+        let lfn: LuaFunction = lua.load("vim.api.nvim_set_current_win").eval()?;
 
         lfn.call::<u32, ()>(win_id)
     }
 
     pub fn open_file(lua: &mlua::Lua, open_in: OpenIn, path: &str) -> LuaResult<()> {
-        let lfn: mlua::Function = lua.load(format!("vim.cmd.{open_in}")).eval()?;
+        let lfn: LuaFunction = lua.load(format!("vim.cmd.{open_in}")).eval()?;
 
         lfn.call::<&str, ()>(path)
     }
@@ -183,7 +183,7 @@ impl NeoApi {
     &nbsp; • |getcurpos()|
     */
     pub fn win_get_cursor(lua: &Lua, win_id: u32) -> LuaResult<WinCursor> {
-        let lfn: mlua::Function = lua.load("vim.api.nvim_win_get_cursor").eval()?;
+        let lfn: LuaFunction = lua.load("vim.api.nvim_win_get_cursor").eval()?;
 
         lfn.call::<u32, WinCursor>(win_id)
     }
@@ -197,37 +197,37 @@ impl NeoApi {
       • WinCursor
     */
     pub fn win_set_cursor(lua: &Lua, win_id: u32, cursor: WinCursor) -> LuaResult<()> {
-        let lfn: mlua::Function = lua.load("vim.api.nvim_win_set_cursor").eval()?;
+        let lfn: LuaFunction = lua.load("vim.api.nvim_win_set_cursor").eval()?;
 
         lfn.call::<(u32, WinCursor), ()>((win_id, cursor))
     }
 
     pub fn set_cwd(lua: &Lua, path: &PathBuf) -> LuaResult<()> {
-        let lfn: mlua::Function = lua.load("vim.api.nvim_set_current_dir").eval()?;
+        let lfn: LuaFunction = lua.load("vim.api.nvim_set_current_dir").eval()?;
 
         lfn.call::<String, ()>(path.to_string_lossy().to_string())
     }
 
     pub fn get_cwd(lua: &mlua::Lua) -> LuaResult<PathBuf> {
-        let lfn: mlua::Function = lua.load("vim.fn.getcwd").eval()?;
+        let lfn: LuaFunction = lua.load("vim.fn.getcwd").eval()?;
 
         Ok(lfn.call::<(), String>(())?.into())
     }
 
     pub fn get_filepath(lua: &mlua::Lua) -> LuaResult<PathBuf> {
-        let lfn: mlua::Function = lua.load("vim.fn.expand").eval()?;
+        let lfn: LuaFunction = lua.load("vim.fn.expand").eval()?;
 
-        Ok(lfn.call::<&str, String>("%")?.into())
+        Ok(lfn.call::<&str, String>("%:p")?.into())
     }
 
     pub fn get_filename(lua: &mlua::Lua) -> LuaResult<String> {
-        let lfn: mlua::Function = lua.load("vim.fn.expand").eval()?;
+        let lfn: LuaFunction = lua.load("vim.fn.expand").eval()?;
 
         lfn.call::<&str, String>("%:p:t")
     }
 
     pub fn get_filedir(lua: &mlua::Lua) -> LuaResult<PathBuf> {
-        let lfn: mlua::Function = lua.load("vim.fn.expand").eval()?;
+        let lfn: LuaFunction = lua.load("vim.fn.expand").eval()?;
 
         Ok(lfn.call::<&str, String>("%:p:h")?.into())
     }
@@ -246,7 +246,7 @@ impl NeoApi {
     state         String   Session state directory: storage for file drafts, swap, undo, |shada|.
     */
     pub fn stdpath(lua: &mlua::Lua, stdpath: StdpathType) -> LuaResult<PathBuf> {
-        let lfn: mlua::Function = lua.load("vim.fn.stdpath").eval()?;
+        let lfn: LuaFunction = lua.load("vim.fn.stdpath").eval()?;
 
         Ok(lfn.call::<String, String>(stdpath.to_string())?.into())
     }
@@ -268,7 +268,7 @@ impl NeoApi {
         Namespace id
     */
     pub fn create_namespace(lua: &mlua::Lua, ns: &str) -> LuaResult<u32> {
-        let lfn: mlua::Function = lua.load("vim.api.nvim_create_namespace").eval()?;
+        let lfn: LuaFunction = lua.load("vim.api.nvim_create_namespace").eval()?;
 
         lfn.call::<&str, u32>(ns)
     }
@@ -316,7 +316,7 @@ impl NeoApi {
         col_start: u32,
         col_end: i32,
     ) -> LuaResult<i32> {
-        let lfn: mlua::Function = lua.load("vim.api.nvim_buf_add_highlight").eval()?;
+        let lfn: LuaFunction = lua.load("vim.api.nvim_buf_add_highlight").eval()?;
 
         lfn.call::<(u32, i32, &str, usize, u32, i32), i32>((
             buf_id, ns_id, hl_group, line, col_start, col_end,
@@ -357,7 +357,7 @@ impl NeoApi {
         start: u32,
         end: i32,
     ) -> mlua::Result<()> {
-        let lfn: mlua::Function = lua.load("vim.api.nvim_buf_clear_namespace").eval()?;
+        let lfn: LuaFunction = lua.load("vim.api.nvim_buf_clear_namespace").eval()?;
 
         lfn.call::<(u32, i32, u32, i32), ()>((buf_id, ns_id, start, end))
     }
@@ -396,7 +396,7 @@ impl NeoApi {
         strict_indexing: bool,
         lines: Vec<String>,
     ) -> mlua::Result<()> {
-        let lfn: mlua::Function = lua.load("vim.api.nvim_buf_set_lines").eval()?;
+        let lfn: LuaFunction = lua.load("vim.api.nvim_buf_set_lines").eval()?;
 
         lfn.call::<(u32, i32, i32, bool, Vec<String>), ()>((
             buf_id,
@@ -407,34 +407,36 @@ impl NeoApi {
         ))
     }
 
-    pub fn buf_extmark_opts<'a>(lua: &'a mlua::Lua, opts: ExtmarkOpts) -> mlua::Result<Table<'a>> {
-        let table = lua.create_table()?;
-
-        if let Some(id) = opts.id {
-            table.set("id", id)?;
-        }
-
-        if let Some(end_row) = opts.end_row {
-            table.set("end_row", end_row)?;
-        }
-
-        if let Some(virt_text) = opts.virt_text {
-            table.set("virt_text", virt_text)?;
-        }
-
-        if let Some(virt_text_win_col) = opts.virt_text_win_col {
-            table.set("virt_text_win_col", virt_text_win_col)?;
-        }
-
-        Ok(table)
-    }
-
     pub fn list_uis(lua: &mlua::Lua) -> LuaResult<Vec<Ui>> {
-        let lfn: mlua::Function = lua.load("vim.api.nvim_list_uis").eval()?;
+        let lfn: LuaFunction = lua.load("vim.api.nvim_list_uis").eval()?;
 
         lfn.call::<(), Vec<Ui>>(())
     }
 
+    /**
+    Creates or updates an |extmark|.
+
+    By default a new extmark is created when no id is passed in, but it is
+    also possible to create a new mark by passing in a previously unused id or
+    move an existing mark by passing in its id. The caller must then keep
+    track of existing and unused ids itself. (Useful over RPC, to avoid
+    waiting for the return value.)
+
+    Using the optional arguments, it is possible to use this to highlight a
+    range of text, and also to associate virtual text to the mark.
+
+    If present, the position defined by `end_col` and `end_row` should be
+    after the start position in order for the extmark to cover a range. An
+    earlier end position is not an error, but then it behaves like an empty
+    range (no highlighting).
+
+    Parameters: ~
+      • {buffer}  Buffer handle, or 0 for current buffer
+      • {ns_id}   Namespace id from |nvim_create_namespace()|
+      • {line}    Line where to place the mark, 0-based. |api-indexing|
+      • {col}     Column where to place the mark, 0-based. |api-indexing|
+      • {opts}    Optional parameters.
+    */
     pub fn buf_set_extmark<'a>(
         lua: &'a mlua::Lua,
         buf_id: u32,
@@ -443,7 +445,7 @@ impl NeoApi {
         col: u32,
         opts: ExtmarkOpts,
     ) -> mlua::Result<()> {
-        let lfn: mlua::Function = lua.load("vim.api.nvim_buf_set_extmark").eval()?;
+        let lfn: LuaFunction = lua.load("vim.api.nvim_buf_set_extmark").eval()?;
         let opts: LuaValue = opts.into_lua(lua)?;
 
         lfn.call::<(u32, u32, u32, u32, LuaValue), ()>((buf_id, ns_id, line, col, opts))
@@ -456,7 +458,7 @@ impl NeoApi {
         rhs: mlua::Function,
         keymap_opts: Table<'a>,
     ) -> mlua::Result<()> {
-        let lfn: mlua::Function = lua.load("vim.keymap.set").eval()?;
+        let lfn: LuaFunction = lua.load("vim.keymap.set").eval()?;
 
         let mode = match mode {
             Mode::Insert => "i",
@@ -466,5 +468,17 @@ impl NeoApi {
         };
 
         lfn.call::<(&str, &str, mlua::Function, mlua::Table), ()>((mode, lhs, rhs, keymap_opts))
+    }
+
+    /// Creates an |autocommand| event handler, defined by `callback`
+    pub fn create_autocmd<'a>(lua: &'a Lua, events: Vec<AutoCmdEvent>, opts: AutoCmdOpts<'a>) ->
+        LuaResult<AutoCmd> {
+        let lfn: LuaFunction = lua.load("vim.api.nvim_create_autocmd").eval()?;
+
+        let events = events.iter().map(|e| e.to_string()).collect();
+
+        let id = lfn.call::<(Vec<String>, AutoCmdOpts), u32>((events, opts))?;
+
+        Ok(AutoCmd::new(id))
     }
 }

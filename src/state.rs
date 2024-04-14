@@ -70,8 +70,15 @@ impl AppState {
     pub fn open_navigation(&mut self, lua: &Lua) -> LuaResult<()> {
         self.buf = NeoApi::create_buf(lua, false, true)?;
         self.buf.set_option_value(lua, "bufhidden", "wipe")?;
-        self.cwd = NeoApi::get_filedir(lua)?;
         self.win = NeoApi::get_current_win(lua)?;
+        self.history.clear();
+
+        let filepath = NeoApi::get_filepath(lua)?;
+        let filename = filepath.file_name().unwrap().to_string_lossy().to_string();
+
+        self.cwd = filepath.parent().unwrap().to_path_buf();
+
+        self.update_history(filename);
 
         NeoApi::set_current_buf(lua, self.buf.id())?;
 
