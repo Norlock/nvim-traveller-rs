@@ -120,12 +120,22 @@ pub struct WinCursor {
 }
 
 impl WinCursor {
-    // Starts from 0
+    /// Create a cursor where the passed row argument starts from 0
+    pub fn from_zero_indexed(row: u32, column: u32) -> Self {
+        Self { row: row + 1, column }
+    }
+
+    /// Create a cursor where the passed row argument starts from 1
+    pub fn from_one_indexed(row: u32, column: u32) -> Self {
+        Self { row, column }
+    }
+
+    /// Return value starts from 0
     pub fn row_zero_indexed(&self) -> u32 {
         self.row - 1
     }
 
-    // Starts from 1
+    /// Return value starts from 1
     pub fn row_one_indexed(&self) -> u32 {
         self.row
     }
@@ -144,6 +154,15 @@ impl<'a> FromLua<'a> for WinCursor {
                 "Supposed to be a table".to_string(),
             )),
         }
+    }
+}
+
+impl<'a> IntoLua<'a> for WinCursor {
+    fn into_lua(self, lua: &'a Lua) -> LuaResult<LuaValue<'a>> {
+        let table = lua.create_table()?;
+        table.set(1, self.row);
+        table.set(2, self.column);
+        lua.to_value(&table)
     }
 }
 
@@ -203,6 +222,15 @@ impl Window {
         self.0
     }
 
+    /**
+    Sets the value of an option. The behavior of this function matches that of
+    |:set|: for global-local options, both the global and local value are set
+    unless otherwise specified with {scope}.
+
+    Parameters: ~
+      • {name}   Option name
+      • {value}  New option value
+    */
     pub fn set_option_value<'a, V: IntoLua<'a>>(
         &self,
         lua: &'a Lua,
@@ -210,6 +238,10 @@ impl Window {
         value: V,
     ) -> LuaResult<()> {
         NeoApi::set_option_value(lua, key, value, OptValueType::Window(*self))
+    }
+
+    pub fn set_cursor(&self, lua: &Lua, cursor: WinCursor) -> LuaResult<()> {
+        NeoApi::win_set_cursor(lua, self.id(), cursor)
     }
 }
 
@@ -258,16 +290,9 @@ impl Buffer {
     |:set|: for global-local options, both the global and local value are set
     unless otherwise specified with {scope}.
 
-    Note the options {win} and {buf} cannot be used together.
-
     Parameters: ~
       • {name}   Option name
       • {value}  New option value
-      • {opts}   Optional parameters
-                 • scope: One of "global" or "local". Analogous to
-                   |:setglobal| and |:setlocal|, respectively.
-                 • win: |window-ID|. Used for setting window local option.
-                 • buf: Buffer number. Used for setting buffer local option.
     */
     pub fn set_option_value<'a, V: IntoLua<'a>>(
         &self,
@@ -322,6 +347,42 @@ impl Buffer {
         col_end: i32,
     ) -> LuaResult<i32> {
         NeoApi::buf_add_highlight(lua, self.0, ns_id, hl_group, line, col_start, col_end)
+    }
+
+    /**
+    Sets (replaces) a line-range in the buffer.
+
+    Indexing is zero-based, end-exclusive. Negative indices are interpreted as
+    length+1+index: -1 refers to the index past the end. So to change or
+    delete the last element use start=-2 and end=-1.
+
+    To insert lines at a given index, set `start` and `end` to the same index.
+    To delete a range of lines, set `replacement` to an empty array.
+
+    Out-of-bounds indices are clamped to the nearest valid value, unless
+    `strict_indexing` is set.
+
+    Attributes: ~
+        not allowed when |textlock| is active
+
+    Parameters: ~
+      • {start}            First line index
+      • {end}              Last line index, exclusive
+      • {strict_indexing}  Whether out-of-bounds should be an error.
+      • {replacement}      Array of lines to use as replacement
+
+    See also: ~
+      • |nvim_buf_set_text()|
+    */
+    pub fn set_lines(
+        &self,
+        lua: &Lua,
+        start: i32,
+        end: i32,
+        strict_indexing: bool,
+        lines: Vec<String>,
+    ) -> mlua::Result<()> {
+        NeoApi::buf_set_lines(lua, self.id(), start, end, strict_indexing, lines)
     }
 }
 

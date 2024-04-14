@@ -2,7 +2,7 @@ use super::neo_api_types::ExtmarkOpts;
 use crate::neo_api_types::{
     Buffer, LogLevel, Mode, OpenIn, OptValueType, StdpathType, Ui, WinCursor, Window,
 };
-use mlua::Table;
+use mlua::{Lua, Table};
 use mlua::{
     prelude::{LuaError, LuaResult, LuaTable, LuaValue},
     IntoLua,
@@ -182,13 +182,27 @@ impl NeoApi {
     See also: ~
     &nbsp; • |getcurpos()|
     */
-    pub fn win_get_cursor(lua: &mlua::Lua, win_id: u32) -> LuaResult<WinCursor> {
+    pub fn win_get_cursor(lua: &Lua, win_id: u32) -> LuaResult<WinCursor> {
         let lfn: mlua::Function = lua.load("vim.api.nvim_win_get_cursor").eval()?;
 
         lfn.call::<u32, WinCursor>(win_id)
     }
 
-    pub fn set_cwd(lua: &mlua::Lua, path: &PathBuf) -> LuaResult<()> {
+    /**
+    Sets the (1,0)-indexed cursor position in the window. |api-indexing| This
+    scrolls the window even if it is not the current one.
+
+    Parameters: ~
+      • Window handle, or 0 for current window
+      • WinCursor
+    */
+    pub fn win_set_cursor(lua: &Lua, win_id: u32, cursor: WinCursor) -> LuaResult<()> {
+        let lfn: mlua::Function = lua.load("vim.api.nvim_win_set_cursor").eval()?;
+
+        lfn.call::<(u32, WinCursor), ()>((win_id, cursor))
+    }
+
+    pub fn set_cwd(lua: &Lua, path: &PathBuf) -> LuaResult<()> {
         let lfn: mlua::Function = lua.load("vim.api.nvim_set_current_dir").eval()?;
 
         lfn.call::<String, ()>(path.to_string_lossy().to_string())
@@ -198,6 +212,12 @@ impl NeoApi {
         let lfn: mlua::Function = lua.load("vim.fn.getcwd").eval()?;
 
         Ok(lfn.call::<(), String>(())?.into())
+    }
+
+    pub fn get_filepath(lua: &mlua::Lua) -> LuaResult<PathBuf> {
+        let lfn: mlua::Function = lua.load("vim.fn.expand").eval()?;
+
+        Ok(lfn.call::<&str, String>("%")?.into())
     }
 
     /**
@@ -316,6 +336,32 @@ impl NeoApi {
         lfn.call::<(u32, u32, i32, i32), ()>((buf_id, ns, start, end))
     }
 
+    /**
+    Sets (replaces) a line-range in the buffer.
+
+    Indexing is zero-based, end-exclusive. Negative indices are interpreted as
+    length+1+index: -1 refers to the index past the end. So to change or
+    delete the last element use start=-2 and end=-1.
+
+    To insert lines at a given index, set `start` and `end` to the same index.
+    To delete a range of lines, set `replacement` to an empty array.
+
+    Out-of-bounds indices are clamped to the nearest valid value, unless
+    `strict_indexing` is set.
+
+    Attributes: ~
+        not allowed when |textlock| is active
+
+    Parameters: ~
+      • {buffer}           Buffer handle, or 0 for current buffer
+      • {start}            First line index
+      • {end}              Last line index, exclusive
+      • {strict_indexing}  Whether out-of-bounds should be an error.
+      • {replacement}      Array of lines to use as replacement
+
+    See also: ~
+      • |nvim_buf_set_text()|
+    */
     pub fn buf_set_lines(
         lua: &mlua::Lua,
         buf_id: u32,

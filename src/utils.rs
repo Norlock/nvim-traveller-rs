@@ -4,13 +4,14 @@ pub struct Utils;
 
 impl Utils {
     pub fn git_root(path: &PathBuf) -> Option<PathBuf> {
+        let dir_path = if path.is_file() {
+            path.parent()?.to_string_lossy()
+        } else {
+            path.to_string_lossy()
+        };
+
         let output = Command::new("git")
-            .args([
-                "-C",
-                &path.to_string_lossy(),
-                "rev-parse",
-                "--show-toplevel",
-            ])
+            .args(["-C", &dir_path, "rev-parse", "--show-toplevel"])
             .output()
             .ok()?;
 
@@ -31,4 +32,3 @@ impl Utils {
             .unwrap_or(input)
     }
 }
-
