@@ -44,7 +44,7 @@ impl AppState {
         if self.buf_content.is_empty() {
             // TODO cursorline false
             let ui = &NeoApi::list_uis(lua)?[0];
-            self.win.set_option(lua, "cursorline", false)?;
+            self.win.set_option_value(lua, "cursorline", false)?;
 
             let text = "Traveller - (Empty directory)".to_string();
             let width = text.len() as u32;
@@ -64,7 +64,7 @@ impl AppState {
 
             NeoApi::buf_set_extmark(lua, self.buf.id(), theme.navigation_ns, 0, 0, opts)?;
         } else {
-            self.win.set_option(lua, "cursorline", true)?;
+            self.win.set_option_value(lua, "cursorline", true)?;
         }
 
         for (i, item_name) in self.buf_content.iter().enumerate() {

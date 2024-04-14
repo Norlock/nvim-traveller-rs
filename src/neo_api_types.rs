@@ -1,11 +1,13 @@
 #![allow(unused)]
+use std::fmt::{self, Display};
+
 use mlua::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::neo_api::NeoApi;
 
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
-#[serde(rename_all="snake_case")]
+#[serde(rename_all = "snake_case")]
 pub enum VirtTextPos {
     Eol,
     Overlay,
@@ -14,7 +16,7 @@ pub enum VirtTextPos {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
-#[serde(rename_all="snake_case")]
+#[serde(rename_all = "snake_case")]
 pub enum HlMode {
     Replace,
     Combine,
@@ -33,7 +35,7 @@ pub enum LogLevel {
     Info = 2,
     Warn = 3,
     Error = 4,
-    Off = 5
+    Off = 5,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -52,7 +54,7 @@ pub enum StdpathType {
     State,
 }
 
-impl std::fmt::Debug for StdpathType {
+impl std::fmt::Display for StdpathType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let str = match self {
             Self::Config => "config",
@@ -67,6 +69,24 @@ impl std::fmt::Debug for StdpathType {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum OpenIn {
+    Buffer,
+    VSplit,
+    HSplit,
+    Tab,
+}
+
+impl Display for OpenIn {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Buffer => f.write_str("edit"),
+            Self::Tab => f.write_str("tabedit"),
+            Self::VSplit => f.write_str("vsplit"),
+            Self::HSplit => f.write_str("split"),
+        }
+    }
+}
 
 #[derive(Debug, Serialize, Default)]
 /// Pleas help to add more and test
@@ -91,10 +111,43 @@ impl<'a> IntoLua<'a> for ExtmarkOpts<'a> {
 
         lua.to_value_with(&self, ser_opts)
     }
-    
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+pub struct WinCursor {
+    row: u32,
+    pub column: u32,
+}
+
+impl WinCursor {
+    // Starts from 0
+    pub fn row_zero_indexed(&self) -> u32 {
+        self.row - 1
+    }
+
+    // Starts from 1
+    pub fn row_one_indexed(&self) -> u32 {
+        self.row
+    }
+}
+
+impl<'a> FromLua<'a> for WinCursor {
+    fn from_lua(value: LuaValue<'a>, lua: &'a Lua) -> LuaResult<Self> {
+        match value {
+            LuaValue::Table(table) => {
+                let row: u32 = table.get(1)?;
+                let column: u32 = table.get(2)?;
+
+                Ok(Self { row, column })
+            }
+            _ => Err(LuaError::DeserializeError(
+                "Supposed to be a table".to_string(),
+            )),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Ui {
     pub chan: u32,
     pub ext_cmdline: bool,
@@ -150,7 +203,7 @@ impl Window {
         self.0
     }
 
-    pub fn set_option<'a, V: IntoLua<'a>>(
+    pub fn set_option_value<'a, V: IntoLua<'a>>(
         &self,
         lua: &'a Lua,
         key: &str,
@@ -172,6 +225,32 @@ impl Buffer {
 
     pub fn id(&self) -> u32 {
         self.0
+    }
+
+    /**
+    Sets the current buffer.
+
+    Attributes: ~
+        not allowed when |textlock| is active or in the |cmdwin|
+    */
+    pub fn set_current_buf(&self, lua: &mlua::Lua) -> LuaResult<()> {
+        NeoApi::set_current_buf(lua, self.id())
+    }
+
+    /**
+    Deletes the buffer. See |:bwipeout|
+
+    Attributes: ~
+        not allowed when |textlock| is active or in the |cmdwin|
+
+    Parameters: ~
+      • {buffer}  Buffer handle, or 0 for current buffer
+      • {opts}    Optional parameters. Keys:
+                  • force: Force deletion and ignore unsaved changes.
+                  • unload: Unloaded only, do not delete. See |:bunload|
+    */
+    pub fn delete<'a>(&self, lua: &'a Lua, opts: Option<LuaTable<'a>>) -> LuaResult<()> {
+        NeoApi::buf_delete(lua, self.id(), opts)
     }
 
     /**
