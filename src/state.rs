@@ -3,6 +3,7 @@ use crate::utils::Utils;
 use crate::CONTAINER;
 use crate::{neo_api::NeoApi, theme::Theme};
 use mlua::prelude::*;
+use std::cmp::Ordering;
 use std::{
     fs::{self, DirEntry},
     path::PathBuf,
@@ -159,7 +160,7 @@ async fn open_item(lua: &Lua, open_in: OpenIn) -> LuaResult<()> {
 
         if let Some(git_root) = Utils::git_root(&app.cwd) {
             NeoApi::set_cwd(lua, &git_root)?;
-        } 
+        }
 
         Ok(())
     }
@@ -170,14 +171,28 @@ fn close_navigation(lua: &Lua, _: ()) -> LuaResult<()> {
 }
 
 fn nav_buffer_lines(path: &PathBuf) -> LuaResult<Vec<String>> {
-    let dir = fs::read_dir(path).map_err(|e| LuaError::RuntimeError(e.to_string()))?;
+    let dir = fs::read_dir(path).map_err(LuaError::external)?;
+
+    let mut paths: Vec<_> = dir.map(|item| item.unwrap()).collect();
+
+    //paths.sort_by_key(|dir| dir.path());
+    paths.sort_by(|a, b| {
+        let met_a = a.metadata().unwrap();
+        let met_b = b.metadata().unwrap();
+
+        if met_a.is_dir() == met_b.is_dir() {
+            a.file_name().cmp(&b.file_name())
+        } else if met_a.is_dir() {
+            Ordering::Less
+        } else {
+            Ordering::Greater
+        }
+    });
 
     let mut lines = vec![];
 
-    for item in dir {
-        if let Ok(entry) = item {
-            append_item(entry, &mut lines);
-        }
+    for entry in paths {
+        append_item(entry, &mut lines);
     }
 
     Ok(lines)
