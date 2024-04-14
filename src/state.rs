@@ -155,7 +155,12 @@ impl AppState {
         self.buf.set_option_value(lua, "modifiable", false)?;
 
         self.theme_nav_buffer(lua)?;
+        self.set_nav_cursor(lua)?;
 
+        Ok(())
+    }
+
+    fn set_nav_cursor(&mut self, lua: &Lua) -> LuaResult<()> {
         if let Some(location) = self.history.iter().find(|loc| &loc.dir_path == &self.cwd) {
             for (row, item) in self.buf_content.iter().enumerate() {
                 if &location.item == item {
@@ -178,7 +183,12 @@ impl AppState {
             .find(|his| &his.dir_path == &self.cwd)
     }
 
-    fn update_history(&mut self, item: String) {
+    fn update_history(&mut self, mut item: String) {
+        if !item.ends_with("/") {
+            // Make sure history only stores directory like paths
+            item.push('/');
+        }
+
         if let Some(location) = self.get_location() {
             location.item = item;
             return;
@@ -198,6 +208,10 @@ async fn toggle_hidden(lua: &Lua, _: ()) -> LuaResult<()> {
 
 async fn navigate_to_parent(lua: &Lua, _: ()) -> LuaResult<()> {
     let mut app = CONTAINER.0.write().await;
+    
+    if app.cwd.parent().is_none() {
+        return Ok(())
+    }
 
     let cursor = NeoApi::win_get_cursor(lua, 0)?;
     let item = app.buf_content[cursor.row_zero_indexed() as usize].clone();
