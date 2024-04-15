@@ -85,19 +85,13 @@ impl AppState {
         self.set_buffer_content(lua)?;
 
         // Display in bar below
-        Self::set_buf_name_navigator(lua)?;
+        NeoApi::set_cmd_file(lua, "Traveller")?;
 
         self.add_keymaps(lua)?;
 
         // TODO Autocmd to regain cwd.
 
         Ok(())
-    }
-
-    fn set_buf_name_navigator(lua: &Lua) -> LuaResult<()> {
-        let lfn: mlua::Function = lua.load("vim.cmd.file").eval()?;
-
-        Ok(lfn.call::<&str, ()>("Traveller")?)
     }
 
     fn add_keymaps(&self, lua: &Lua) -> LuaResult<()> {

@@ -232,6 +232,13 @@ impl NeoApi {
         Ok(lfn.call::<&str, String>("%:p:h")?.into())
     }
 
+    pub fn set_cmd_file(lua: &Lua, name: &str) -> LuaResult<()> {
+        let lfn: mlua::Function = lua.load("vim.cmd.file").eval()?;
+
+        lfn.call::<&str, ()>(name)
+    }
+
+
     /**
     Returns |standard-path| locations of various default files and directories.
 
