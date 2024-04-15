@@ -1,4 +1,7 @@
-use crate::neo_api_types::{AutoCmdCallbackEvent, AutoCmdEvent, AutoCmdOpts, Buffer, Mode, OpenIn, StdpathType, WinCursor, Window};
+use crate::neo_api_types::{
+    AutoCmdCallbackEvent, AutoCmdEvent, AutoCmdOpts, Buffer, CbDataFiller, Mode, OpenIn,
+    StdpathType, WinCursor, Window,
+};
 use crate::utils::Utils;
 use crate::CONTAINER;
 use crate::{neo_api::NeoApi, theme::Theme};
@@ -91,13 +94,14 @@ impl AppState {
 
         // TODO Autocmd to regain cwd.
         let events = vec![AutoCmdEvent::BufEnter];
+
         let auto_cmd_opts = AutoCmdOpts {
             buffer: Some(self.buf.id()),
-            callback: lua.create_function(callback)?,
+            callback: lua.create_async_function(buf_enter_callback)?,
             pattern: vec![],
             group: None,
             desc: None,
-            once: false
+            once: false,
         };
 
         NeoApi::create_autocmd(lua, events, auto_cmd_opts)?;
@@ -209,7 +213,7 @@ impl AppState {
     }
 }
 
-fn callback(lua: &Lua, ev: AutoCmdCallbackEvent) -> LuaResult<()> {
+async fn buf_enter_callback(lua: &Lua, ev: AutoCmdCallbackEvent<CbDataFiller>) -> LuaResult<()> {
     NeoApi::notify(lua, &"Successfull!")?;
     NeoApi::notify(lua, &ev)
 }

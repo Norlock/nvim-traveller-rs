@@ -2,7 +2,7 @@
 use std::fmt::{self, Display};
 
 use mlua::prelude::*;
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::neo_api::NeoApi;
 
@@ -777,7 +777,7 @@ pub struct AutoCmdOpts<'a> {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct AutoCmdCallbackEvent {
+pub struct AutoCmdCallbackEvent<T: LuaUserData> {
     /// Autocommand id
     pub id: u32,
     /// Name of the triggered event |autocmd-events|
@@ -786,12 +786,30 @@ pub struct AutoCmdCallbackEvent {
     pub group: Option<u32>,
     /// Expanded value of <amatch>
     pub r#match: String,
+    /// Expanded value of <abuf>
     pub buf: u32,
+    /// Expanded value of <afile>
     pub file: String,
+    ///  (Any) arbitrary data passed from |nvim_exec_autocmds()|
+    pub data: Option<T>,
 }
 
-impl<'lua> FromLua<'lua> for AutoCmdCallbackEvent {
-    fn from_lua(value: LuaValue<'lua>, lua: &'lua Lua) -> LuaResult<Self> {
+/// This is a simple struct to use if you don't care about global data passed
+/// from |nvim_exec_autocmds()|. Otherwise create your custom struct.
+#[derive(Debug, Clone, Deserialize)]
+pub struct CbDataFiller;
+
+impl LuaUserData for CbDataFiller {
+    fn add_fields<'lua, F: LuaUserDataFields<'lua, Self>>(fields: &mut F) {}
+
+    fn add_methods<'lua, M: LuaUserDataMethods<'lua, Self>>(methods: &mut M) {}
+}
+
+impl<'a, T> FromLua<'a> for AutoCmdCallbackEvent<T>
+where
+    T: LuaUserData + DeserializeOwned,
+{
+    fn from_lua(value: LuaValue<'a>, lua: &'a Lua) -> LuaResult<Self> {
         lua.from_value(value)
     }
 }
