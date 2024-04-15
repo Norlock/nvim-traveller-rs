@@ -165,7 +165,7 @@ impl<'a> IntoLua<'a> for WinCursor {
         let table = lua.create_table()?;
         table.set(1, self.row);
         table.set(2, self.column);
-        
+
         Ok(LuaValue::Table(table))
     }
 }
@@ -743,7 +743,7 @@ impl Display for AutoCmdEvent {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct AutoCmdOpts<'a> {
     /// Autocommand group name or id to match against.
     pub group: Option<AutoCmdGroup>,
@@ -770,10 +770,30 @@ pub struct AutoCmdOpts<'a> {
     • file: (string) expanded value of <afile>
     • data: (any) arbitrary data passed from |nvim_exec_autocmds()|
      */
-    pub callback: Option<LuaFunction<'a>>,
+    pub callback: LuaFunction<'a>,
 
     /// defaults to false. Run the autocommand only once |autocmd-once|.
     pub once: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct AutoCmdCallbackEvent {
+    /// Autocommand id
+    pub id: u32,
+    /// Name of the triggered event |autocmd-events|
+    pub event: String,
+    /// Autocommand group id, if any
+    pub group: Option<u32>,
+    /// Expanded value of <amatch>
+    pub r#match: String,
+    pub buf: u32,
+    pub file: String,
+}
+
+impl<'lua> FromLua<'lua> for AutoCmdCallbackEvent {
+    fn from_lua(value: LuaValue<'lua>, lua: &'lua Lua) -> LuaResult<Self> {
+        lua.from_value(value)
+    }
 }
 
 impl<'a> IntoLua<'a> for AutoCmdOpts<'a> {
@@ -798,10 +818,7 @@ impl<'a> IntoLua<'a> for AutoCmdOpts<'a> {
             table.set("desc", desc)?;
         }
 
-        if let Some(cb) = self.callback {
-            table.set("callback", cb)?;
-        }
-
+        table.set("callback", self.callback)?;
         table.set("once", self.once)?;
 
         Ok(LuaValue::Table(table))

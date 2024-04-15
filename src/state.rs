@@ -1,4 +1,4 @@
-use crate::neo_api_types::{Buffer, Mode, OpenIn, StdpathType, WinCursor, Window};
+use crate::neo_api_types::{AutoCmdCallbackEvent, AutoCmdEvent, AutoCmdOpts, Buffer, Mode, OpenIn, StdpathType, WinCursor, Window};
 use crate::utils::Utils;
 use crate::CONTAINER;
 use crate::{neo_api::NeoApi, theme::Theme};
@@ -90,6 +90,17 @@ impl AppState {
         self.add_keymaps(lua)?;
 
         // TODO Autocmd to regain cwd.
+        let events = vec![AutoCmdEvent::BufEnter];
+        let auto_cmd_opts = AutoCmdOpts {
+            buffer: Some(self.buf.id()),
+            callback: lua.create_function(callback)?,
+            pattern: vec![],
+            group: None,
+            desc: None,
+            once: false
+        };
+
+        NeoApi::create_autocmd(lua, events, auto_cmd_opts)?;
 
         Ok(())
     }
@@ -196,6 +207,11 @@ impl AppState {
         let dir_path = self.cwd.clone();
         self.history.push(Location::new(dir_path, item));
     }
+}
+
+fn callback(lua: &Lua, ev: AutoCmdCallbackEvent) -> LuaResult<()> {
+    NeoApi::notify(lua, &"Successfull!")?;
+    NeoApi::notify(lua, &ev)
 }
 
 async fn toggle_hidden(lua: &Lua, _: ()) -> LuaResult<()> {
