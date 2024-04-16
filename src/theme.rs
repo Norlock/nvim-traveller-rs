@@ -1,5 +1,7 @@
-use crate::{neo_api::NeoApi, neo_api_types::ExtmarkOpts, state::AppState};
-use mlua::prelude::LuaResult;
+use neo_api_rs::prelude::*; 
+use neo_api_rs::mlua::prelude::*;
+
+use crate::state::AppState;
 
 #[derive(Debug)]
 pub struct Theme {
@@ -11,7 +13,7 @@ pub struct Theme {
 }
 
 impl Theme {
-    pub fn init(&mut self, lua: &mlua::Lua) -> LuaResult<()> {
+    pub fn init(&mut self, lua: &Lua) -> LuaResult<()> {
         if !self.init {
             self.navigation_ns = NeoApi::create_namespace(lua, "TravellerNavigation")?;
             self.popup_ns = NeoApi::create_namespace(lua, "TravellerInfo")?;
@@ -37,7 +39,7 @@ impl Default for Theme {
 }
 
 impl AppState {
-    pub fn theme_nav_buffer(&mut self, lua: &mlua::Lua) -> LuaResult<()> {
+    pub fn theme_nav_buffer(&mut self, lua: &Lua) -> LuaResult<()> {
         let theme = &self.theme;
 
         self.buf.clear_namespace(lua, theme.navigation_ns as i32, 0, -1)?;

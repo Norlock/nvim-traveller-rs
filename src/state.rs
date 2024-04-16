@@ -1,11 +1,9 @@
-use crate::neo_api_types::{
-    AutoCmdCallbackEvent, AutoCmdEvent, AutoCmdOpts, Buffer, CbDataFiller, Mode, OpenIn,
-    StdpathType, WinCursor, Window,
-};
+use neo_api_rs::mlua::prelude::*;
+use neo_api_rs::prelude::*;
+
+use crate::theme::Theme;
 use crate::utils::Utils;
 use crate::CONTAINER;
-use crate::{neo_api::NeoApi, theme::Theme};
-use mlua::prelude::*;
 use std::cmp::Ordering;
 use std::{
     fs::{self, DirEntry},
@@ -26,6 +24,9 @@ impl Location {
     }
 }
 
+#[derive(Clone)]
+pub struct AppContainer(pub Arc<RwLock<AppState>>);
+
 #[derive(Debug)]
 pub struct AppState {
     pub show_hidden: bool,
@@ -34,22 +35,19 @@ pub struct AppState {
     pub buf_content: Vec<String>,
     pub cwd: PathBuf,
     pub history_dir: PathBuf,
-    pub win: Window,
-    pub buf: Buffer,
+    pub win: NeoWindow,
+    pub buf: NeoBuffer,
     pub theme: Theme,
 }
 
 unsafe impl Send for AppState {}
 unsafe impl Sync for AppState {}
 
-#[derive(Clone)]
-pub struct AppContainer(pub Arc<RwLock<AppState>>);
-
 impl Default for AppContainer {
     fn default() -> Self {
         let app = AppState {
-            buf: Buffer::ZERO,
-            win: Window::ZERO,
+            buf: NeoBuffer::ZERO,
+            win: NeoWindow::ZERO,
             history: vec![],
             selection: vec![],
             buf_content: vec![],

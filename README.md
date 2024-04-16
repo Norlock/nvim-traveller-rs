@@ -1,5 +1,5 @@
 # Nvim traveller port
-This is a port of the nivm-traveller plugin written in Lua. However I'm not a particular fan of scripted languages so I used nvim-oxi for this project. Shoutout to: https://github.com/noib3/nvim-oxi
+This is a port of the nivm-traveller plugin written in Lua. However I'm not a particular fan of scripted languages so I used neo-api-rs for this project. 
 
 ## Startup (dev settings)
 - Run `./prepare.sh` to setup the symlink to the lua directory

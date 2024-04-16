@@ -1,9 +1,8 @@
 use crate::state::AppContainer;
-use mlua::prelude::*;
-use neo_api::NeoApi;
+use neo_api_rs::prelude::*;
+use neo_api_rs::mlua::prelude::*;
+use neo_api_rs::mlua;
 
-mod neo_api;
-mod neo_api_types;
 mod state;
 mod theme;
 mod utils;
