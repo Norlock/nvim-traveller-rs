@@ -1,9 +1,9 @@
-use neo_api_rs::prelude::*; 
 use neo_api_rs::mlua::prelude::*;
+use neo_api_rs::prelude::*;
 
-use crate::state::AppState;
+use crate::state::{AppInstance, AppState};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Theme {
     pub navigation_ns: u32,
     pub popup_ns: u32,
@@ -38,11 +38,10 @@ impl Default for Theme {
     }
 }
 
-impl AppState {
-    pub fn theme_nav_buffer(&mut self, lua: &Lua) -> LuaResult<()> {
-        let theme = &self.theme;
-
-        self.buf.clear_namespace(lua, theme.navigation_ns as i32, 0, -1)?;
+impl AppInstance {
+    pub fn theme_nav_buffer(&mut self, theme: &Theme, lua: &Lua) -> LuaResult<()> {
+        self.buf
+            .clear_namespace(lua, theme.navigation_ns as i32, 0, -1)?;
 
         if self.buf_content.is_empty() {
             let ui = &NeoApi::list_uis(lua)?[0];
@@ -64,7 +63,8 @@ impl AppState {
                 ..Default::default()
             };
 
-            self.buf.set_extmarks(lua, theme.navigation_ns, 0, 0, opts)?;
+            self.buf
+                .set_extmarks(lua, theme.navigation_ns, 0, 0, opts)?;
         } else {
             self.win.set_option_value(lua, "cursorline", true)?;
         }

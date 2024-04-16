@@ -1,16 +1,17 @@
 use neo_api_rs::mlua::prelude::*;
 use neo_api_rs::prelude::*;
+use tokio::sync::RwLock;
 
 use crate::theme::Theme;
 use crate::utils::Utils;
 use crate::CONTAINER;
 use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::{
     fs::{self, DirEntry},
     path::PathBuf,
     sync::Arc,
 };
-use tokio::sync::RwLock;
 
 #[derive(Debug)]
 pub struct Location {
@@ -29,15 +30,21 @@ pub struct AppContainer(pub Arc<RwLock<AppState>>);
 
 #[derive(Debug)]
 pub struct AppState {
+    pub history_dir: PathBuf,
+    pub theme: Theme,
+    pub active_instance_idx: u32,
+    pub instances: HashMap<u32, AppInstance>,
+}
+
+#[derive(Debug)]
+pub struct AppInstance {
+    pub win: NeoWindow,
+    pub buf: NeoBuffer,
     pub show_hidden: bool,
     pub history: Vec<Location>,
     pub selection: Vec<Location>,
     pub buf_content: Vec<String>,
     pub cwd: PathBuf,
-    pub history_dir: PathBuf,
-    pub win: NeoWindow,
-    pub buf: NeoBuffer,
-    pub theme: Theme,
 }
 
 unsafe impl Send for AppState {}
@@ -46,15 +53,10 @@ unsafe impl Sync for AppState {}
 impl Default for AppContainer {
     fn default() -> Self {
         let app = AppState {
-            buf: NeoBuffer::ZERO,
-            win: NeoWindow::ZERO,
-            history: vec![],
-            selection: vec![],
-            buf_content: vec![],
-            show_hidden: false,
-            cwd: PathBuf::new(),
             history_dir: PathBuf::new(),
             theme: Theme::default(),
+            active_instance_idx: 0,
+            instances: HashMap::new(),
         };
 
         Self(Arc::new(RwLock::new(app)))
@@ -68,33 +70,51 @@ impl AppState {
         Ok(())
     }
 
+    pub fn active_instance<'a>(&'a mut self) -> &'a mut AppInstance {
+        self.instances.get_mut(&self.active_instance_idx).unwrap()
+    }
+
+    pub fn set_active_instance<'a>(&'a mut self, idx: u32) -> &'a mut AppInstance {
+        self.active_instance_idx = idx;
+        self.instances.get_mut(&idx).unwrap()
+    }
+
     pub fn open_navigation(&mut self, lua: &Lua) -> LuaResult<()> {
-        self.buf = NeoApi::create_buf(lua, false, true)?;
-        self.buf.set_option_value(lua, "bufhidden", "wipe")?;
-        self.win = NeoApi::get_current_win(lua)?;
-        self.history.clear();
+        let buf = NeoApi::create_buf(lua, false, true)?;
+        buf.set_option_value(lua, "bufhidden", "wipe")?;
+        let win = NeoApi::get_current_win(lua)?;
 
         let filepath = NeoApi::get_filepath(lua)?;
         let filename = filepath.file_name().unwrap().to_string_lossy().to_string();
+        let cwd = filepath.parent().unwrap().to_path_buf();
 
-        self.cwd = filepath.parent().unwrap().to_path_buf();
+        buf.set_current(lua)?;
+        let buf_id = buf.id();
 
-        self.update_history(filename);
+        let mut instance = AppInstance {
+            buf,
+            win,
+            show_hidden: false,
+            history: vec![],
+            selection: vec![],
+            buf_content: vec![],
+            cwd,
+        };
 
-        NeoApi::set_current_buf(lua, self.buf.id())?;
+        instance.update_history(filename);
+        instance.set_buffer_content(&self.theme, lua)?;
+        instance.add_keymaps(lua)?;
 
-        self.set_buffer_content(lua)?;
+        self.instances.insert(buf_id, instance);
+        self.active_instance_idx = buf_id;
 
         // Display in bar below
-        NeoApi::set_cmd_file(lua, "Traveller")?;
+        //NeoApi::set_cmd_file(lua, "Traveller")?;
 
-        self.add_keymaps(lua)?;
-
-        // TODO Autocmd to regain cwd.
         let events = vec![AutoCmdEvent::BufEnter];
 
         let auto_cmd_opts = AutoCmdOpts {
-            buffer: Some(self.buf.id()),
+            buffer: Some(buf_id),
             callback: lua.create_async_function(buf_enter_callback)?,
             pattern: vec![],
             group: None,
@@ -107,6 +127,9 @@ impl AppState {
         Ok(())
     }
 
+}
+
+impl AppInstance {
     fn add_keymaps(&self, lua: &Lua) -> LuaResult<()> {
         let km_opts = NeoApi::buf_keymap_opts(lua, true, self.buf.id())?;
 
@@ -161,7 +184,7 @@ impl AppState {
         Ok(())
     }
 
-    fn set_buffer_content(&mut self, lua: &Lua) -> LuaResult<()> {
+    fn set_buffer_content(&mut self, theme: &Theme, lua: &Lua) -> LuaResult<()> {
         NeoApi::set_cwd(lua, &self.cwd)?;
 
         self.buf.set_option_value(lua, "modifiable", true)?;
@@ -170,7 +193,7 @@ impl AppState {
             .set_lines(lua, 0, -1, true, self.buf_content.clone())?;
         self.buf.set_option_value(lua, "modifiable", false)?;
 
-        self.theme_nav_buffer(lua)?;
+        self.theme_nav_buffer(theme, lua)?;
         self.set_nav_cursor(lua)?;
 
         Ok(())
@@ -212,39 +235,44 @@ impl AppState {
 }
 
 async fn buf_enter_callback(lua: &Lua, ev: AutoCmdCallbackEvent<CbDataFiller>) -> LuaResult<()> {
-    NeoApi::notify(lua, &"Successfull!")?;
-    NeoApi::notify(lua, &ev)
+    let mut app = CONTAINER.0.write().await;
+    let instance = app.set_active_instance(ev.buf);
+
+    NeoApi::set_cwd(lua, &instance.cwd)
 }
 
 async fn toggle_hidden(lua: &Lua, _: ()) -> LuaResult<()> {
     let mut app = CONTAINER.0.write().await;
 
-    app.show_hidden = !app.show_hidden;
-    app.set_buffer_content(lua)
+    let theme = app.theme.clone();
+    let instance = app.active_instance();
+    instance.show_hidden = !instance.show_hidden;
+    instance.set_buffer_content(&theme, lua)
 }
 
 async fn navigate_to_parent(lua: &Lua, _: ()) -> LuaResult<()> {
     let mut app = CONTAINER.0.write().await;
+    let theme = app.theme.clone();
 
-    if app.cwd.parent().is_none() {
+    let instance = app.active_instance();
+
+    if instance.cwd.parent().is_none() {
         return Ok(());
     }
 
-    if !app.buf_content.is_empty() {
+    if !instance.buf_content.is_empty() {
         let cursor = NeoApi::win_get_cursor(lua, 0)?;
-        let item = app.buf_content[cursor.row_zero_indexed() as usize].clone();
+        let item = instance.buf_content[cursor.row_zero_indexed() as usize].clone();
 
-        app.update_history(item);
+        instance.update_history(item);
     }
 
     // Before navigating to parent add to history to the parent directory already knows to which it
     // needs to point its cursor
-    let item = app.cwd.file_name().unwrap().to_string_lossy().to_string();
-    app.cwd.pop();
-
-    app.update_history(format!("{item}/"));
-
-    app.set_buffer_content(lua)
+    let item = instance.cwd.file_name().unwrap().to_string_lossy().to_string();
+    instance.cwd.pop();
+    instance.update_history(format!("{item}/"));
+    instance.set_buffer_content(&theme, lua)
 }
 
 async fn open_item_in_buffer(lua: &Lua, _: ()) -> LuaResult<()> {
@@ -266,9 +294,12 @@ async fn open_item_in_hsplit(lua: &Lua, _: ()) -> LuaResult<()> {
 async fn open_item(lua: &Lua, open_in: OpenIn) -> LuaResult<()> {
     let mut app = CONTAINER.0.write().await;
 
+    let theme = app.theme.clone();
+    let instance = app.active_instance();
+
     let cursor = NeoApi::win_get_cursor(lua, 0)?;
 
-    let item = app
+    let item = instance
         .buf_content
         .get(cursor.row_zero_indexed() as usize)
         .map(|item| item.to_string());
@@ -281,12 +312,12 @@ async fn open_item(lua: &Lua, open_in: OpenIn) -> LuaResult<()> {
     let item = item.unwrap();
 
     if item.ends_with("/") {
-        app.cwd.push(item.to_string());
-        app.set_buffer_content(lua)
+        instance.cwd.push(item.to_string());
+        instance.set_buffer_content(&theme, lua)
     } else {
         NeoApi::open_file(lua, open_in, &item)?;
 
-        if let Some(git_root) = Utils::git_root(&app.cwd) {
+        if let Some(git_root) = Utils::git_root(&instance.cwd) {
             NeoApi::set_cwd(lua, &git_root)?;
         }
 

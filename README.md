@@ -1,6 +1,9 @@
 # Nvim traveller port
 This is a port of the nivm-traveller plugin written in Lua. However I'm not a particular fan of scripted languages so I used neo-api-rs for this project. 
 
+> [!NOTE]
+> This is in active development so sometimes the `neo-api-rs` crate will point to my own location but you can toggle the comment in Cargo.toml to apply the github version
+
 ## Startup (dev settings)
 - Run `./prepare.sh` to setup the symlink to the lua directory
 - Run `Cargo build --release` to recreate bin
