@@ -45,6 +45,8 @@ pub struct AppInstance {
     pub selection: Vec<Location>,
     pub buf_content: Vec<String>,
     pub cwd: PathBuf,
+    /// This is where traveller needs to return when quiting manually
+    pub started_from: PathBuf,
 }
 
 unsafe impl Send for AppState {}
@@ -74,6 +76,10 @@ impl AppState {
         self.instances.get_mut(&self.active_instance_idx).unwrap()
     }
 
+    pub fn active_instance_ref<'a>(&'a self) -> &'a AppInstance {
+        self.instances.get(&self.active_instance_idx).unwrap()
+    }
+
     pub fn set_active_instance<'a>(&'a mut self, idx: u32) -> &'a mut AppInstance {
         self.active_instance_idx = idx;
         self.instances.get_mut(&idx).unwrap()
@@ -84,9 +90,14 @@ impl AppState {
         buf.set_option_value(lua, "bufhidden", "wipe")?;
         let win = NeoApi::get_current_win(lua)?;
 
-        let filepath = NeoApi::get_filepath(lua)?;
-        let filename = filepath.file_name().unwrap().to_string_lossy().to_string();
-        let cwd = filepath.parent().unwrap().to_path_buf();
+        let started_from = NeoApi::get_filepath(lua)?;
+        let filename = started_from
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
+
+        let cwd = started_from.parent().unwrap().to_path_buf();
 
         buf.set_current(lua)?;
         let buf_id = buf.id();
@@ -99,6 +110,7 @@ impl AppState {
             selection: vec![],
             buf_content: vec![],
             cwd,
+            started_from,
         };
 
         instance.update_history(filename);
@@ -108,12 +120,13 @@ impl AppState {
         self.instances.insert(buf_id, instance);
         self.active_instance_idx = buf_id;
 
+        NeoApi::notify(lua, &self.instances)?;
+
         // Display in bar below
-        //NeoApi::set_cmd_file(lua, "Traveller")?;
+        NeoApi::set_cmd_file(lua, format!("Traveller ({buf_id})"))?;
 
-        let events = vec![AutoCmdEvent::BufEnter];
-
-        let auto_cmd_opts = AutoCmdOpts {
+        // Auto commands
+        let buf_enter_aucmd = AutoCmdOpts {
             buffer: Some(buf_id),
             callback: lua.create_async_function(buf_enter_callback)?,
             pattern: vec![],
@@ -122,19 +135,29 @@ impl AppState {
             once: false,
         };
 
-        NeoApi::create_autocmd(lua, events, auto_cmd_opts)?;
+        NeoApi::create_autocmd(lua, vec![AutoCmdEvent::BufEnter], buf_enter_aucmd)?;
+
+        let buf_hidden_aucmd = AutoCmdOpts {
+            buffer: Some(buf_id),
+            callback: lua.create_async_function(buf_hidden_callback)?,
+            pattern: vec![],
+            group: None,
+            desc: None,
+            once: true,
+        };
+
+        NeoApi::create_autocmd(lua, vec![AutoCmdEvent::BufWipeout], buf_hidden_aucmd)?;
 
         Ok(())
     }
-
 }
 
 impl AppInstance {
     fn add_keymaps(&self, lua: &Lua) -> LuaResult<()> {
         let km_opts = NeoApi::buf_keymap_opts(lua, true, self.buf.id())?;
 
-        let close_navigation = lua.create_function(close_navigation)?;
-        NeoApi::set_keymap(lua, Mode::Normal, "q", close_navigation, km_opts.clone())?;
+        let close_nav = lua.create_async_function(close_navigation)?;
+        NeoApi::set_keymap(lua, Mode::Normal, "q", close_nav, km_opts.clone())?;
 
         let nav_to_parent = lua.create_async_function(navigate_to_parent)?;
         NeoApi::set_keymap(
@@ -241,6 +264,13 @@ async fn buf_enter_callback(lua: &Lua, ev: AutoCmdCallbackEvent<CbDataFiller>) -
     NeoApi::set_cwd(lua, &instance.cwd)
 }
 
+async fn buf_hidden_callback(_: &Lua, ev: AutoCmdCallbackEvent<CbDataFiller>) -> LuaResult<()> {
+    let mut app = CONTAINER.0.write().await;
+    app.instances.remove(&ev.buf);
+
+    Ok(())
+}
+
 async fn toggle_hidden(lua: &Lua, _: ()) -> LuaResult<()> {
     let mut app = CONTAINER.0.write().await;
 
@@ -269,7 +299,12 @@ async fn navigate_to_parent(lua: &Lua, _: ()) -> LuaResult<()> {
 
     // Before navigating to parent add to history to the parent directory already knows to which it
     // needs to point its cursor
-    let item = instance.cwd.file_name().unwrap().to_string_lossy().to_string();
+    let item = instance
+        .cwd
+        .file_name()
+        .unwrap()
+        .to_string_lossy()
+        .to_string();
     instance.cwd.pop();
     instance.update_history(format!("{item}/"));
     instance.set_buffer_content(&theme, lua)
@@ -325,17 +360,20 @@ async fn open_item(lua: &Lua, open_in: OpenIn) -> LuaResult<()> {
     }
 }
 
-fn close_navigation(lua: &Lua, _: ()) -> LuaResult<()> {
-    NeoApi::buf_delete(lua, 0, None)?;
+async fn close_navigation(lua: &Lua, _: ()) -> LuaResult<()> {
+    let app = CONTAINER.0.read().await;
 
-    let path = NeoApi::get_filepath(lua)?;
-    NeoApi::notify(lua, &path)?;
+    let instance = app.active_instance_ref();
+    let path = instance.started_from.clone();
 
-    if let Some(git_root) = Utils::git_root(&path) {
+    if let Some(git_root) = Utils::git_root(&instance.started_from) {
         NeoApi::set_cwd(lua, &git_root)?;
     }
 
-    Ok(())
+    // Drop lock before deleting app to prevent lock being blocked in autocommands callbacks.
+    drop(app);
+
+    NeoApi::open_file(lua, OpenIn::Buffer, path.to_str().unwrap())
 }
 
 fn nav_buffer_lines(path: &PathBuf, show_hidden: bool) -> LuaResult<Vec<String>> {
