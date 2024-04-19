@@ -14,5 +14,5 @@ neo-api-rs = { path = "../neo-api-rs", version = "0.1.0" }
 lazy_static = "1.4.0"
 serde = { version = "1.0.197", features = ["serde_derive"] }
 serde_json = "1.0.115"
-tokio = { version = "1.37.0", features = ["macros", "sync"] }
+tokio = { version = "1", features = ["full"] }
 mlua_derive = { version = "0.9.2", features = ["macros"] }

@@ -1,7 +1,7 @@
 use crate::state::AppContainer;
-use neo_api_rs::prelude::*;
-use neo_api_rs::mlua::prelude::*;
 use neo_api_rs::mlua;
+use neo_api_rs::mlua::prelude::*;
+use neo_api_rs::prelude::*;
 
 mod state;
 mod theme;
@@ -32,11 +32,11 @@ fn nvim_traveller_rs(lua: &Lua) -> LuaResult<LuaTable> {
     Ok(module)
 }
 
-async fn open_navigation(lua: &Lua, _: ()) -> LuaResult<()> {
+async fn open_navigation<'a, 'b>(lua: &'a Lua, _: ()) -> LuaResult<()> {
     let mut app = CONTAINER.0.write().await;
 
-    if let Err(err) = app.open_navigation(lua) {
-        NeoApi::notify(lua, &err)?;
+    if let Err(err) = app.open_navigation(&lua) {
+        NeoApi::notify(&lua, &err)?;
     }
 
     Ok(())

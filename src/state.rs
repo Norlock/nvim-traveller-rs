@@ -1,4 +1,5 @@
 use neo_api_rs::mlua::prelude::*;
+use neo_api_rs::prelude::NuiApi;
 use neo_api_rs::prelude::*;
 use tokio::sync::RwLock;
 
@@ -120,8 +121,6 @@ impl AppState {
         self.instances.insert(buf_id, instance);
         self.active_instance_idx = buf_id;
 
-        NeoApi::notify(lua, &self.instances)?;
-
         // Display in bar below
         NeoApi::set_cmd_file(lua, format!("Traveller ({buf_id})"))?;
 
@@ -139,7 +138,7 @@ impl AppState {
 
         let buf_hidden_aucmd = AutoCmdOpts {
             buffer: Some(buf_id),
-            callback: lua.create_async_function(buf_hidden_callback)?,
+            callback: lua.create_async_function(buf_wipeout_callback)?,
             pattern: vec![],
             group: None,
             desc: None,
@@ -147,6 +146,33 @@ impl AppState {
         };
 
         NeoApi::create_autocmd(lua, vec![AutoCmdEvent::BufWipeout], buf_hidden_aucmd)?;
+
+        // TEMP
+        let popup = NuiApi::create_popup(
+            lua,
+            NuiPopupOpts {
+                size: NuiDimension::XandY(NuiSize::Percentage(50)),
+                position: NuiDimension::XandY(NuiSize::Percentage(50)),
+                buf_options: None,
+                enter: Some(true),
+                focusable: None,
+                zindex: Some(50),
+                relative: Some(NuiRelative::Win),
+                border: Some(NuiBorder {
+                    style: Some(NuiBorderStyle::Rounded),
+                    padding: None,
+                    text: Some(NuiBorderText {
+                        top: Some("Immaculate".to_string()),
+                        top_align: NuiAlign::Center,
+                        bottom: None,
+                        bottom_align: NuiAlign::Center,
+                    }),
+                }),
+                win_options: None,
+            },
+        )?;
+
+        popup.mount(lua)?;
 
         Ok(())
     }
@@ -264,7 +290,7 @@ async fn buf_enter_callback(lua: &Lua, ev: AutoCmdCallbackEvent<CbDataFiller>) -
     NeoApi::set_cwd(lua, &instance.cwd)
 }
 
-async fn buf_hidden_callback(_: &Lua, ev: AutoCmdCallbackEvent<CbDataFiller>) -> LuaResult<()> {
+async fn buf_wipeout_callback(lua: &Lua, ev: AutoCmdCallbackEvent<CbDataFiller>) -> LuaResult<()> {
     let mut app = CONTAINER.0.write().await;
     app.instances.remove(&ev.buf);
 
@@ -350,9 +376,13 @@ async fn open_item(lua: &Lua, open_in: OpenIn) -> LuaResult<()> {
         instance.cwd.push(item.to_string());
         instance.set_buffer_content(&theme, lua)
     } else {
+        let cwd = instance.cwd.clone();
+
+        drop(app);
+
         NeoApi::open_file(lua, open_in, &item)?;
 
-        if let Some(git_root) = Utils::git_root(&instance.cwd) {
+        if let Some(git_root) = Utils::git_root(&cwd) {
             NeoApi::set_cwd(lua, &git_root)?;
         }
 
