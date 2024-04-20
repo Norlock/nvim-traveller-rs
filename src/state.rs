@@ -264,15 +264,14 @@ impl AppInstance {
     }
 }
 
-#[allow(unused)]
-async fn buf_enter_callback<'a>(lua: &Lua, ev: AutoCmdCbEvent) -> LuaResult<()> {
+async fn buf_enter_callback<'a>(_: &Lua, ev: AutoCmdCbEvent) -> LuaResult<()> {
     fn callback(lua: &Lua, ev: AutoCmdCbEvent) {
         let mut app = CONTAINER.blocking_lock();
         let instance = app.set_active_instance(ev.buf);
         let _ = NeoApi::set_cwd(lua, &instance.cwd);
     }
 
-    CbContainer::add_to_queue(Box::new(callback), ev);
+    CbContainer::add_to_queue(Box::new(callback), ev).await;
 
     Ok(())
 }
@@ -280,11 +279,11 @@ async fn buf_enter_callback<'a>(lua: &Lua, ev: AutoCmdCbEvent) -> LuaResult<()> 
 async fn buf_wipeout_callback(_: &Lua, ev: AutoCmdCbEvent) -> LuaResult<()> {
     fn callback(lua: &Lua, ev: AutoCmdCbEvent) {
         let mut app = CONTAINER.blocking_lock();
-        let _ = NeoApi::notify(lua, &"SUccessfully called".to_string());
+        let _ = NeoApi::notify(lua, &"Successfully called");
         app.instances.remove(&ev.buf);
     }
 
-    CbContainer::add_to_queue(Box::new(callback), ev);
+    CbContainer::add_to_queue(Box::new(callback), ev).await;
 
     Ok(())
 }
@@ -366,18 +365,18 @@ async fn open_item(lua: &Lua, open_in: OpenIn) -> LuaResult<()> {
 
     if item.ends_with("/") {
         instance.cwd.push(item.to_string());
-        instance.set_buffer_content(&theme, lua)
+        instance.set_buffer_content(&theme, lua)?;
     } else {
         NeoApi::open_file(lua, open_in, &item)?;
 
         if let Some(git_root) = Utils::git_root(&instance.cwd) {
             NeoApi::set_cwd(lua, &git_root)?;
         }
-
-        CbContainer::exec(lua).await;
-
-        Ok(())
     }
+
+    CbContainer::exec_drop_lock(app, lua).await;
+
+    Ok(())
 }
 
 async fn close_navigation(lua: &Lua, _: ()) -> LuaResult<()> {
@@ -390,12 +389,10 @@ async fn close_navigation(lua: &Lua, _: ()) -> LuaResult<()> {
         NeoApi::set_cwd(lua, &git_root)?;
     }
 
-    // Drop lock before deleting app to prevent lock being blocked in autocommands callbacks.
-    //drop(app);
+    NeoApi::open_file(lua, OpenIn::Buffer, path.to_str().unwrap())?;
 
-    NeoApi::open_file(lua, OpenIn::Buffer, path.to_str().unwrap());
-
-    CbContainer::exec(lua).await;
+    // Drop lock before calling autocmds to prevent lock being blocked in autocommands callbacks.
+    CbContainer::exec_drop_lock(app, lua).await;
 
     Ok(())
 }
