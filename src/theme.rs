@@ -8,18 +8,14 @@ pub struct Theme {
     pub popup_ns: u32,
     pub help_ns: u32,
     pub status_ns: u32,
-    pub init: bool,
 }
 
 impl Theme {
     pub fn init(&mut self, lua: &Lua) -> LuaResult<()> {
-        if !self.init {
-            self.navigation_ns = NeoApi::create_namespace(lua, "TravellerNavigation")?;
-            self.popup_ns = NeoApi::create_namespace(lua, "TravellerInfo")?;
-            self.help_ns = NeoApi::create_namespace(lua, "TravellerHelp")?;
-            self.status_ns = NeoApi::create_namespace(lua, "TravellerStatus")?;
-            self.init = true;
-        }
+        self.navigation_ns = NeoApi::create_namespace(lua, "TravellerNavigation")?;
+        self.popup_ns = NeoApi::create_namespace(lua, "TravellerInfo")?;
+        self.help_ns = NeoApi::create_namespace(lua, "TravellerHelp")?;
+        self.status_ns = NeoApi::create_namespace(lua, "TravellerStatus")?;
 
         Ok(())
     }
@@ -32,7 +28,6 @@ impl Default for Theme {
             popup_ns: 0,
             help_ns: 0,
             status_ns: 0,
-            init: false,
         }
     }
 }

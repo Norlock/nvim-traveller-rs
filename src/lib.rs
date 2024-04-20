@@ -1,26 +1,36 @@
-use crate::state::AppContainer;
+use std::collections::HashMap;
+use std::path::PathBuf;
+
 use neo_api_rs::mlua;
 use neo_api_rs::mlua::prelude::*;
 use neo_api_rs::prelude::*;
+use once_cell::sync::Lazy;
+use state::AppState;
+use theme::Theme;
+use tokio::sync::Mutex;
 
 mod state;
 mod theme;
 mod utils;
 
-#[macro_use]
-extern crate lazy_static;
+static CONTAINER: Lazy<Mutex<AppState>> = Lazy::new(|| {
+    let app = AppState {
+        history_dir: PathBuf::new(),
+        theme: Theme::default(),
+        active_instance_idx: 0,
+        instances: HashMap::new(),
+    };
 
-lazy_static! {
-    pub static ref CONTAINER: AppContainer = AppContainer::default();
-}
+    Mutex::new(app)
+});
 
 #[mlua::lua_module]
 fn nvim_traveller_rs(lua: &Lua) -> LuaResult<LuaTable> {
     let module = lua.create_table()?;
 
-    let mut app = CONTAINER.0.blocking_write();
+    let mut app = CONTAINER.blocking_lock();
 
-    if let Err(err) = app.theme.init(lua) {
+    if let Err(err) = app.init(lua) {
         NeoApi::notify(lua, &err)?;
     }
 
@@ -33,7 +43,7 @@ fn nvim_traveller_rs(lua: &Lua) -> LuaResult<LuaTable> {
 }
 
 async fn open_navigation<'a, 'b>(lua: &'a Lua, _: ()) -> LuaResult<()> {
-    let mut app = CONTAINER.0.write().await;
+    let mut app = CONTAINER.lock().await;
 
     if let Err(err) = app.open_navigation(&lua) {
         NeoApi::notify(&lua, &err)?;

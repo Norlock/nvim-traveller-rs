@@ -1,7 +1,6 @@
 use neo_api_rs::mlua::prelude::*;
 use neo_api_rs::prelude::NuiApi;
 use neo_api_rs::prelude::*;
-use tokio::sync::RwLock;
 
 use crate::theme::Theme;
 use crate::utils::Utils;
@@ -11,7 +10,6 @@ use std::collections::HashMap;
 use std::{
     fs::{self, DirEntry},
     path::PathBuf,
-    sync::Arc,
 };
 
 #[derive(Debug)]
@@ -25,9 +23,6 @@ impl Location {
         Self { dir_path, item }
     }
 }
-
-#[derive(Clone)]
-pub struct AppContainer(pub Arc<RwLock<AppState>>);
 
 #[derive(Debug)]
 pub struct AppState {
@@ -53,24 +48,10 @@ pub struct AppInstance {
 unsafe impl Send for AppState {}
 unsafe impl Sync for AppState {}
 
-impl Default for AppContainer {
-    fn default() -> Self {
-        let app = AppState {
-            history_dir: PathBuf::new(),
-            theme: Theme::default(),
-            active_instance_idx: 0,
-            instances: HashMap::new(),
-        };
-
-        Self(Arc::new(RwLock::new(app)))
-    }
-}
-
 impl AppState {
     pub fn init(&mut self, lua: &Lua) -> LuaResult<()> {
         self.history_dir = NeoApi::stdpath(lua, StdpathType::State)?;
-
-        Ok(())
+        self.theme.init(lua)
     }
 
     pub fn active_instance<'a>(&'a mut self) -> &'a mut AppInstance {
@@ -284,21 +265,21 @@ impl AppInstance {
 }
 
 async fn buf_enter_callback(lua: &Lua, ev: AutoCmdCallbackEvent<CbDataFiller>) -> LuaResult<()> {
-    let mut app = CONTAINER.0.write().await;
+    let mut app = CONTAINER.lock().await;
     let instance = app.set_active_instance(ev.buf);
 
     NeoApi::set_cwd(lua, &instance.cwd)
 }
 
-async fn buf_wipeout_callback(lua: &Lua, ev: AutoCmdCallbackEvent<CbDataFiller>) -> LuaResult<()> {
-    let mut app = CONTAINER.0.write().await;
+async fn buf_wipeout_callback(_: &Lua, ev: AutoCmdCallbackEvent<CbDataFiller>) -> LuaResult<()> {
+    let mut app = CONTAINER.lock().await;
     app.instances.remove(&ev.buf);
 
     Ok(())
 }
 
 async fn toggle_hidden(lua: &Lua, _: ()) -> LuaResult<()> {
-    let mut app = CONTAINER.0.write().await;
+    let mut app = CONTAINER.lock().await;
 
     let theme = app.theme.clone();
     let instance = app.active_instance();
@@ -307,7 +288,7 @@ async fn toggle_hidden(lua: &Lua, _: ()) -> LuaResult<()> {
 }
 
 async fn navigate_to_parent(lua: &Lua, _: ()) -> LuaResult<()> {
-    let mut app = CONTAINER.0.write().await;
+    let mut app = CONTAINER.lock().await;
     let theme = app.theme.clone();
 
     let instance = app.active_instance();
@@ -353,7 +334,7 @@ async fn open_item_in_hsplit(lua: &Lua, _: ()) -> LuaResult<()> {
 }
 
 async fn open_item(lua: &Lua, open_in: OpenIn) -> LuaResult<()> {
-    let mut app = CONTAINER.0.write().await;
+    let mut app = CONTAINER.lock().await;
 
     let theme = app.theme.clone();
     let instance = app.active_instance();
@@ -391,7 +372,7 @@ async fn open_item(lua: &Lua, open_in: OpenIn) -> LuaResult<()> {
 }
 
 async fn close_navigation(lua: &Lua, _: ()) -> LuaResult<()> {
-    let app = CONTAINER.0.read().await;
+    let app = CONTAINER.lock().await;
 
     let instance = app.active_instance_ref();
     let path = instance.started_from.clone();
