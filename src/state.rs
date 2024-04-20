@@ -96,8 +96,8 @@ impl AppState {
         };
 
         instance.update_history(filename);
-        instance.set_buffer_content(&self.theme, lua)?;
         instance.add_keymaps(lua)?;
+        instance.set_buffer_content(&self.theme, lua)?;
 
         self.instances.insert(buf_id, instance);
         self.active_instance_idx = buf_id;
@@ -264,16 +264,27 @@ impl AppInstance {
     }
 }
 
-async fn buf_enter_callback(lua: &Lua, ev: AutoCmdCallbackEvent<CbDataFiller>) -> LuaResult<()> {
-    let mut app = CONTAINER.lock().await;
-    let instance = app.set_active_instance(ev.buf);
+#[allow(unused)]
+async fn buf_enter_callback<'a>(lua: &Lua, ev: AutoCmdCbEvent) -> LuaResult<()> {
+    fn callback(lua: &Lua, ev: AutoCmdCbEvent) {
+        let mut app = CONTAINER.blocking_lock();
+        let instance = app.set_active_instance(ev.buf);
+        let _ = NeoApi::set_cwd(lua, &instance.cwd);
+    }
 
-    NeoApi::set_cwd(lua, &instance.cwd)
+    CbContainer::add_to_queue(Box::new(callback), ev);
+
+    Ok(())
 }
 
-async fn buf_wipeout_callback(_: &Lua, ev: AutoCmdCallbackEvent<CbDataFiller>) -> LuaResult<()> {
-    let mut app = CONTAINER.lock().await;
-    app.instances.remove(&ev.buf);
+async fn buf_wipeout_callback(_: &Lua, ev: AutoCmdCbEvent) -> LuaResult<()> {
+    fn callback(lua: &Lua, ev: AutoCmdCbEvent) {
+        let mut app = CONTAINER.blocking_lock();
+        let _ = NeoApi::notify(lua, &"SUccessfully called".to_string());
+        app.instances.remove(&ev.buf);
+    }
+
+    CbContainer::add_to_queue(Box::new(callback), ev);
 
     Ok(())
 }
@@ -357,15 +368,13 @@ async fn open_item(lua: &Lua, open_in: OpenIn) -> LuaResult<()> {
         instance.cwd.push(item.to_string());
         instance.set_buffer_content(&theme, lua)
     } else {
-        let cwd = instance.cwd.clone();
-
-        drop(app);
-
         NeoApi::open_file(lua, open_in, &item)?;
 
-        if let Some(git_root) = Utils::git_root(&cwd) {
+        if let Some(git_root) = Utils::git_root(&instance.cwd) {
             NeoApi::set_cwd(lua, &git_root)?;
         }
+
+        CbContainer::exec(lua).await;
 
         Ok(())
     }
@@ -382,9 +391,13 @@ async fn close_navigation(lua: &Lua, _: ()) -> LuaResult<()> {
     }
 
     // Drop lock before deleting app to prevent lock being blocked in autocommands callbacks.
-    drop(app);
+    //drop(app);
 
-    NeoApi::open_file(lua, OpenIn::Buffer, path.to_str().unwrap())
+    NeoApi::open_file(lua, OpenIn::Buffer, path.to_str().unwrap());
+
+    CbContainer::exec(lua).await;
+
+    Ok(())
 }
 
 fn nav_buffer_lines(path: &PathBuf, show_hidden: bool) -> LuaResult<Vec<String>> {
