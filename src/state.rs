@@ -51,6 +51,8 @@ unsafe impl Sync for AppState {}
 impl AppState {
     pub fn init(&mut self, lua: &Lua) -> LuaResult<()> {
         self.history_dir = NeoApi::stdpath(lua, StdpathType::State)?;
+        NuiApi::init(lua)?;
+
         self.theme.init(lua)
     }
 
@@ -129,6 +131,8 @@ impl AppState {
         NeoApi::create_autocmd(lua, vec![AutoCmdEvent::BufWipeout], buf_hidden_aucmd)?;
 
         // TEMP
+        let popup_id = "temp";
+
         let popup = NuiApi::create_popup(
             lua,
             NuiPopupOpts {
@@ -151,9 +155,19 @@ impl AppState {
                 }),
                 win_options: None,
             },
+            &popup_id,
         )?;
 
+        //popup.
+
         popup.mount(lua)?;
+
+        let close_popup_event = lua.create_function(move |lua: &Lua, _: ()| {
+            let popup = NuiApi::get_popup(lua, &popup_id)?;
+            popup.unmount(lua)
+        })?;
+
+        popup.on(lua, &[AutoCmdEvent::BufLeave], close_popup_event)?;
 
         Ok(())
     }
