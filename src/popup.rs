@@ -1,3 +1,4 @@
+use crate::{state::AppInstance, CONTAINER, RUNTIME};
 use neo_api_rs::{
     mlua::{prelude::LuaResult, Lua},
     prelude::{
@@ -7,8 +8,6 @@ use neo_api_rs::{
     },
 };
 use std::{fs, io};
-
-use crate::{CONTAINER, RUNTIME};
 
 pub async fn create_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
     let popup_id = "create_items";
@@ -83,9 +82,15 @@ pub async fn create_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
                 return Ok(());
             }
 
-            
-            RUNTIME.spawn(async move {
-                let _ = create_items(items_cmd).await;
+            RUNTIME.block_on(async move {
+                let mut app = CONTAINER.lock().await;
+                let theme = app.theme.clone();
+                let instance = app.active_instance();
+                let _ = create_items(instance, items_cmd).await;
+
+                let _ = instance.set_buffer_content(&theme, lua);
+                // TODO feedback
+                let _ = popup.unmount(lua);
             });
         }
 
@@ -97,35 +102,46 @@ pub async fn create_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
     Ok(())
 }
 
-async fn create_items(mut items_cmd: String) -> io::Result<()> {
-    let app = CONTAINER.lock().await;
-    let instance = app.active_instance_ref();
-    let cwd = instance.cwd.clone();
-    drop(app);
-
+fn split_items(mut items_cmd: String) -> Vec<String> {
     let mut items = vec![];
 
+    const SKIP_OFFSET: usize = 1;
+
     loop {
-        let start_quote = items_cmd.find('"');
+        let start_quote = items_cmd.chars().position(|c| c == '"');
 
         if let Some(start_quote) = start_quote {
-            let end_quote = items_cmd[start_quote..].find('"');
+            let end_quote = items_cmd
+                .chars()
+                .skip(start_quote + SKIP_OFFSET)
+                .position(|c| c == '"');
 
             if let Some(end_quote) = end_quote {
-                items.push(items_cmd[start_quote + 1..end_quote].to_string());
+                let end_quote = start_quote + SKIP_OFFSET + end_quote;
+                items.push(items_cmd[start_quote + SKIP_OFFSET..end_quote].to_string());
                 items_cmd.replace_range(start_quote..=end_quote, "");
+
                 continue;
             }
         }
+
         break;
     }
 
     for item in items_cmd.split(" ") {
-        items.push(item.to_string());
+        if !item.is_empty() {
+            items.push(item.to_string());
+        }
     }
 
+    items
+}
+
+async fn create_items(instance: &AppInstance, items_cmd: String) -> io::Result<()> {
+    let items = split_items(items_cmd);
+
     for item in items.iter() {
-        let path = cwd.join(item);
+        let path = instance.cwd.join(item);
 
         if item.ends_with("/") {
             if path.is_dir() {
@@ -147,4 +163,20 @@ async fn create_items(mut items_cmd: String) -> io::Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod test {
+    use crate::popup::split_items;
+
+    #[test]
+    pub fn test() {
+        let items_cmd = "\"this is.txt\" \"another one.txt\" css/".to_string();
+        let items = split_items(items_cmd);
+
+        assert_eq!("this is.txt", items[0].as_str());
+        assert_eq!("another one.txt", items[1].as_str());
+        assert_eq!("css/", items[2].as_str());
+        assert_eq!(items.len(), 3);
+    }
 }

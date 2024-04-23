@@ -194,7 +194,7 @@ impl AppInstance {
         Ok(())
     }
 
-    fn set_buffer_content(&mut self, theme: &Theme, lua: &Lua) -> LuaResult<()> {
+    pub fn set_buffer_content(&mut self, theme: &Theme, lua: &Lua) -> LuaResult<()> {
         NeoApi::set_cwd(lua, &self.cwd)?;
 
         self.buf.set_option_value(lua, "modifiable", true)?;
