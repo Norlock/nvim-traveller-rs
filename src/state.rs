@@ -186,7 +186,7 @@ impl AppInstance {
         let toggle_hidden = lua.create_async_function(toggle_hidden)?;
         NeoApi::set_keymap(lua, Mode::Normal, ".", toggle_hidden, km_opts.clone())?;
 
-        let create_items = lua.create_async_function(popup::create_items)?;
+        let create_items = lua.create_async_function(popup::create_items_popup)?;
         NeoApi::set_keymap(lua, Mode::Normal, "c", create_items, km_opts)?;
 
         Ok(())

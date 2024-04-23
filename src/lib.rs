@@ -1,18 +1,17 @@
-use std::collections::HashMap;
-use std::path::PathBuf;
-
 use neo_api_rs::mlua;
 use neo_api_rs::mlua::prelude::*;
 use neo_api_rs::prelude::*;
 use once_cell::sync::Lazy;
 use state::AppState;
+use std::collections::HashMap;
+use std::path::PathBuf;
 use theme::Theme;
 use tokio::sync::Mutex;
 
+mod popup;
 mod state;
 mod theme;
 mod utils;
-mod popup;
 
 static CONTAINER: Lazy<Mutex<AppState>> = Lazy::new(|| {
     let app = AppState {
