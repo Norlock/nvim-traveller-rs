@@ -1,5 +1,3 @@
-use std::{fs, io};
-
 use neo_api_rs::{
     mlua::{prelude::LuaResult, Lua},
     prelude::{
@@ -8,9 +6,9 @@ use neo_api_rs::{
         NuiSize,
     },
 };
-use regex::Error;
+use std::{fs, io};
 
-use crate::CONTAINER;
+use crate::{CONTAINER, RUNTIME};
 
 pub async fn create_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
     let popup_id = "create_items";
@@ -85,7 +83,8 @@ pub async fn create_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
                 return Ok(());
             }
 
-            tokio::spawn(async move {
+            
+            RUNTIME.spawn(async move {
                 let _ = create_items(items_cmd).await;
             });
         }
@@ -124,7 +123,6 @@ async fn create_items(mut items_cmd: String) -> io::Result<()> {
     for item in items_cmd.split(" ") {
         items.push(item.to_string());
     }
-
 
     for item in items.iter() {
         let path = cwd.join(item);

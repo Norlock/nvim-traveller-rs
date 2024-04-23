@@ -1,6 +1,7 @@
 use neo_api_rs::mlua::prelude::*;
 use neo_api_rs::prelude::NuiApi;
 use neo_api_rs::prelude::*;
+use tokio::runtime::Runtime;
 
 use crate::theme::Theme;
 use crate::utils::Utils;
@@ -30,6 +31,7 @@ pub struct AppState {
     pub theme: Theme,
     pub active_instance_idx: u32,
     pub instances: HashMap<u32, AppInstance>,
+    pub rt: Runtime,
 }
 
 #[derive(Debug)]

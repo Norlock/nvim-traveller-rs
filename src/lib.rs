@@ -3,6 +3,7 @@ use neo_api_rs::mlua::prelude::*;
 use neo_api_rs::prelude::*;
 use once_cell::sync::Lazy;
 use state::AppState;
+use tokio::runtime::{self, Runtime};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use theme::Theme;
@@ -19,9 +20,17 @@ static CONTAINER: Lazy<Mutex<AppState>> = Lazy::new(|| {
         theme: Theme::default(),
         active_instance_idx: 0,
         instances: HashMap::new(),
+        rt: Runtime::new().unwrap()
     };
 
     Mutex::new(app)
+});
+
+static RUNTIME: Lazy<Runtime> = Lazy::new(|| {
+    runtime::Builder::new_multi_thread()
+        .enable_io()
+        .build()
+        .unwrap()
 });
 
 #[mlua::lua_module]
