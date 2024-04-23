@@ -4,7 +4,7 @@ use neo_api_rs::prelude::*;
 
 use crate::theme::Theme;
 use crate::utils::Utils;
-use crate::CONTAINER;
+use crate::{popup, CONTAINER};
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::{
@@ -130,52 +130,13 @@ impl AppState {
 
         NeoApi::create_autocmd(lua, vec![AutoCmdEvent::BufWipeout], buf_hidden_aucmd)?;
 
-        // TEMP
-        let popup_id = "temp";
-
-        let popup = NuiApi::create_popup(
-            lua,
-            NuiPopupOpts {
-                size: NuiDimension::XandY(NuiSize::Percentage(50)),
-                position: NuiDimension::XandY(NuiSize::Percentage(50)),
-                buf_options: None,
-                enter: Some(true),
-                focusable: None,
-                zindex: Some(50),
-                relative: Some(NuiRelative::Win),
-                border: Some(NuiBorder {
-                    style: Some(NuiBorderStyle::Rounded),
-                    padding: None,
-                    text: Some(NuiBorderText {
-                        top: Some("Immaculate".to_string()),
-                        top_align: NuiAlign::Center,
-                        bottom: None,
-                        bottom_align: NuiAlign::Center,
-                    }),
-                }),
-                win_options: None,
-            },
-            &popup_id,
-        )?;
-
-        //popup.
-
-        popup.mount(lua)?;
-
-        let close_popup_event = lua.create_function(move |lua: &Lua, _: ()| {
-            let popup = NuiApi::get_popup(lua, &popup_id)?;
-            popup.unmount(lua)
-        })?;
-
-        popup.on(lua, &[AutoCmdEvent::BufLeave], close_popup_event)?;
-
         Ok(())
     }
 }
 
 impl AppInstance {
     fn add_keymaps(&self, lua: &Lua) -> LuaResult<()> {
-        let km_opts = NeoApi::buf_keymap_opts(lua, true, self.buf.id())?;
+        let km_opts = self.buf.keymap_opts(true);
 
         let close_nav = lua.create_async_function(close_navigation)?;
         NeoApi::set_keymap(lua, Mode::Normal, "q", close_nav, km_opts.clone())?;
@@ -223,7 +184,10 @@ impl AppInstance {
         NeoApi::set_keymap(lua, Mode::Normal, "v", open_in_vsplit, km_opts.clone())?;
 
         let toggle_hidden = lua.create_async_function(toggle_hidden)?;
-        NeoApi::set_keymap(lua, Mode::Normal, ".", toggle_hidden, km_opts)?;
+        NeoApi::set_keymap(lua, Mode::Normal, ".", toggle_hidden, km_opts.clone())?;
+
+        let create_items = lua.create_async_function(popup::create_items)?;
+        NeoApi::set_keymap(lua, Mode::Normal, "c", create_items, km_opts)?;
 
         Ok(())
     }

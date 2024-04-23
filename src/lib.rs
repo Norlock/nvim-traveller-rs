@@ -12,6 +12,7 @@ use tokio::sync::Mutex;
 mod state;
 mod theme;
 mod utils;
+mod popup;
 
 static CONTAINER: Lazy<Mutex<AppState>> = Lazy::new(|| {
     let app = AppState {
