@@ -1,4 +1,5 @@
 use crate::{state::AppInstance, CONTAINER, RUNTIME};
+use futures::Future;
 use neo_api_rs::{
     mlua::{prelude::LuaResult, Lua},
     prelude::{
@@ -8,6 +9,12 @@ use neo_api_rs::{
     },
 };
 use std::{fs, io};
+
+pub async fn delete_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
+    //
+
+    Ok(())
+}
 
 pub async fn create_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
     let popup_id = "create_items";
@@ -86,12 +93,13 @@ pub async fn create_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
                 let mut app = CONTAINER.lock().await;
                 let theme = app.theme.clone();
                 let instance = app.active_instance();
-                let _ = create_items(instance, items_cmd).await;
 
+                let _ = create_items(instance, items_cmd).await;
                 let _ = instance.set_buffer_content(&theme, lua);
-                // TODO feedback
-                let _ = popup.unmount(lua);
             });
+
+            // TODO feedback
+            popup.unmount(lua)?;
         }
 
         Ok(())

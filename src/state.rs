@@ -177,19 +177,22 @@ impl AppInstance {
         )?;
 
         let open_in_tab = lua.create_async_function(open_item_in_tab)?;
-        NeoApi::set_keymap(lua, Mode::Normal, "t", open_in_tab, km_opts.clone())?;
+        NeoApi::set_keymap(lua, Mode::Normal, "t", open_in_tab, km_opts)?;
 
         let open_in_hsplit = lua.create_async_function(open_item_in_hsplit)?;
-        NeoApi::set_keymap(lua, Mode::Normal, "s", open_in_hsplit, km_opts.clone())?;
+        NeoApi::set_keymap(lua, Mode::Normal, "s", open_in_hsplit, km_opts)?;
 
         let open_in_vsplit = lua.create_async_function(open_item_in_vsplit)?;
-        NeoApi::set_keymap(lua, Mode::Normal, "v", open_in_vsplit, km_opts.clone())?;
+        NeoApi::set_keymap(lua, Mode::Normal, "v", open_in_vsplit, km_opts)?;
 
         let toggle_hidden = lua.create_async_function(toggle_hidden)?;
-        NeoApi::set_keymap(lua, Mode::Normal, ".", toggle_hidden, km_opts.clone())?;
+        NeoApi::set_keymap(lua, Mode::Normal, ".", toggle_hidden, km_opts)?;
 
         let create_items = lua.create_async_function(popup::create_items_popup)?;
         NeoApi::set_keymap(lua, Mode::Normal, "c", create_items, km_opts)?;
+
+        let delete_items = lua.create_async_function(popup::delete_items_popup)?;
+        NeoApi::set_keymap(lua, Mode::Normal, "dd", delete_items, km_opts);
 
         Ok(())
     }
@@ -302,6 +305,7 @@ async fn navigate_to_parent(lua: &Lua, _: ()) -> LuaResult<()> {
         .unwrap()
         .to_string_lossy()
         .to_string();
+
     instance.cwd.pop();
     instance.update_history(format!("{item}/"));
     instance.set_buffer_content(&theme, lua)
@@ -371,7 +375,6 @@ async fn close_navigation(lua: &Lua, _: ()) -> LuaResult<()> {
 
     NeoApi::open_file(lua, OpenIn::Buffer, path.to_str().unwrap())?;
 
-    // Drop lock before calling autocmds to prevent lock being blocked in autocommands callbacks.
     CbContainer::exec_drop_lock(app, lua).await;
 
     Ok(())
