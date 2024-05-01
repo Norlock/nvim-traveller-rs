@@ -33,7 +33,7 @@ impl Default for Theme {
 }
 
 impl AppInstance {
-    pub fn theme_nav_buffer(&mut self, theme: &Theme, lua: &Lua) -> LuaResult<()> {
+    pub fn theme_nav_buffer(&mut self, theme: Theme, lua: &Lua) -> LuaResult<()> {
         self.buf
             .clear_namespace(lua, theme.navigation_ns as i32, 0, -1)?;
 

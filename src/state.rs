@@ -55,7 +55,7 @@ impl AppState {
         self.theme.init(lua)
     }
 
-    pub fn active_instance<'a>(&'a mut self) -> &'a mut AppInstance {
+    pub fn active_instance(&mut self) -> &mut AppInstance {
         self.instances.get_mut(&self.active_instance_idx).unwrap()
     }
 
@@ -66,6 +66,11 @@ impl AppState {
     pub fn set_active_instance<'a>(&'a mut self, idx: u32) -> &'a mut AppInstance {
         self.active_instance_idx = idx;
         self.instances.get_mut(&idx).unwrap()
+    }
+
+    pub fn set_buffer_content(&mut self, lua: &Lua) -> LuaResult<()> {
+        let instance = self.instances.get_mut(&self.active_instance_idx).unwrap();
+        instance.set_buffer_content(&self.theme, lua)
     }
 
     pub fn open_navigation(&mut self, lua: &Lua) -> LuaResult<()> {
@@ -189,21 +194,20 @@ impl AppInstance {
         NeoApi::set_keymap(lua, Mode::Normal, "c", create_items, km_opts)?;
 
         let delete_items = lua.create_async_function(popup::delete_items_popup)?;
-        NeoApi::set_keymap(lua, Mode::Normal, "dd", delete_items, km_opts);
+        NeoApi::set_keymap(lua, Mode::Normal, "dd", delete_items, km_opts)?;
 
         Ok(())
     }
 
-    pub fn set_buffer_content(&mut self, theme: &Theme, lua: &Lua) -> LuaResult<()> {
+    pub fn set_buffer_content<'a>(&'a mut self, theme: &'a Theme, lua: &Lua) -> LuaResult<()> {
         NeoApi::set_cwd(lua, &self.cwd)?;
 
         self.buf.set_option_value(lua, "modifiable", true)?;
         self.buf_content = nav_buffer_lines(&self.cwd, self.show_hidden)?;
-        self.buf
-            .set_lines(lua, 0, -1, true, self.buf_content.clone())?;
+        self.buf.set_lines(lua, 0, -1, true, &self.buf_content)?;
         self.buf.set_option_value(lua, "modifiable", false)?;
 
-        self.theme_nav_buffer(theme, lua)?;
+        self.theme_nav_buffer(*theme, lua)?;
         self.set_nav_cursor(lua)?;
 
         Ok(())

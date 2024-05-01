@@ -1,9 +1,7 @@
 use crate::{state::AppInstance, CONTAINER, RUNTIME};
 use neo_api_rs::{
     mlua::{prelude::LuaResult, Lua},
-    prelude::{
-        Anchor, AutoCmdCbEvent, AutoCmdEvent, AutoCmdOpts, Mode, NeoApi, NeoBuffer, NeoPopup, NeoWindow, PopupAlign, PopupBorder, PopupRelative, PopupSize, PopupStyle, TextType, WinOptions
-    },
+    prelude::*,
 };
 use std::{fs, io};
 
@@ -15,9 +13,9 @@ pub async fn delete_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
     let instance = state.active_instance_ref();
     let cursor = instance.win.get_cursor(lua)?;
 
-    let filename = instance.buf_content[cursor.row_one_indexed() as usize].to_string();
-
+    let filename = instance.buf_content[cursor.row_zero_indexed() as usize].to_string();
     let delete_info = format!("Delete: {filename}");
+    let file_path = instance.cwd.join(filename);
 
     let popup_win = NeoPopup::open_win(
         lua,
@@ -33,7 +31,7 @@ pub async fn delete_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
             border: PopupBorder::Rounded,
             anchor: Anchor::NorthWest,
             title: Some(TextType::String(
-                " Confirm (Enter), cancel (Esc / q) ".to_string(),
+                " Confirm: (enter), cancel: (q) ".to_string(),
             )),
             title_pos: PopupAlign::Right,
             noautocmd: true,
@@ -41,7 +39,25 @@ pub async fn delete_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
         },
     )?;
 
-    popup_buf.set_lines(lua, 0, -1, false, vec![delete_info])?;
+    popup_buf.set_lines(lua, 0, -1, false, &[delete_info])?;
+
+    let close_popup = lua.create_function(move |lua: &Lua, _: ()| popup_win.close(lua, true))?;
+
+    let delete_item = lua.create_function(move |lua: &Lua, _: ()| {
+        if file_path.is_file() {
+            let _ = fs::remove_file(&file_path);
+        } else if file_path.is_dir() {
+            let _ = fs::remove_dir_all(&file_path);
+        }
+
+        let mut app = CONTAINER.blocking_lock();
+        app.set_buffer_content(lua)?;
+
+        popup_win.close(lua, true)
+    })?;
+
+    popup_buf.set_keymap(lua, Mode::Normal, "q", close_popup)?;
+    popup_buf.set_keymap(lua, Mode::Normal, "<Cr>", delete_item)?;
 
     Ok(())
 }
