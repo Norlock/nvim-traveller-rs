@@ -1,11 +1,9 @@
-use neo_api_rs::mlua::prelude::*;
-use neo_api_rs::prelude::NuiApi;
-use neo_api_rs::prelude::*;
-use tokio::runtime::Runtime;
-
 use crate::theme::Theme;
 use crate::utils::Utils;
 use crate::{popup, CONTAINER};
+use neo_api_rs::mlua::prelude::*;
+use neo_api_rs::prelude::NuiApi;
+use neo_api_rs::prelude::*;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::{
@@ -31,7 +29,6 @@ pub struct AppState {
     pub theme: Theme,
     pub active_instance_idx: u32,
     pub instances: HashMap<u32, AppInstance>,
-    pub rt: Runtime,
 }
 
 #[derive(Debug)]
@@ -119,7 +116,7 @@ impl AppState {
             once: false,
         };
 
-        NeoApi::create_autocmd(lua, vec![AutoCmdEvent::BufEnter], buf_enter_aucmd)?;
+        NeoApi::create_autocmd(lua, &[AutoCmdEvent::BufEnter], buf_enter_aucmd)?;
 
         let buf_hidden_aucmd = AutoCmdOpts {
             buffer: Some(buf_id),
@@ -130,7 +127,7 @@ impl AppState {
             once: true,
         };
 
-        NeoApi::create_autocmd(lua, vec![AutoCmdEvent::BufWipeout], buf_hidden_aucmd)?;
+        NeoApi::create_autocmd(lua, &[AutoCmdEvent::BufWipeout], buf_hidden_aucmd)?;
 
         Ok(())
     }
@@ -291,7 +288,7 @@ async fn navigate_to_parent(lua: &Lua, _: ()) -> LuaResult<()> {
     }
 
     if !instance.buf_content.is_empty() {
-        let cursor = NeoApi::win_get_cursor(lua, 0)?;
+        let cursor = NeoWindow::CURRENT.get_cursor(lua)?;
         let item = instance.buf_content[cursor.row_zero_indexed() as usize].clone();
 
         instance.update_history(item);
@@ -333,7 +330,7 @@ async fn open_item(lua: &Lua, open_in: OpenIn) -> LuaResult<()> {
     let theme = app.theme.clone();
     let instance = app.active_instance();
 
-    let cursor = NeoApi::win_get_cursor(lua, 0)?;
+    let cursor = NeoWindow::CURRENT.get_cursor(lua)?;
 
     let item = instance
         .buf_content

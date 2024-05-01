@@ -20,7 +20,6 @@ static CONTAINER: Lazy<Mutex<AppState>> = Lazy::new(|| {
         theme: Theme::default(),
         active_instance_idx: 0,
         instances: HashMap::new(),
-        rt: Runtime::new().unwrap()
     };
 
     Mutex::new(app)

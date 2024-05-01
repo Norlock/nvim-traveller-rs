@@ -1,30 +1,57 @@
 use crate::{state::AppInstance, CONTAINER, RUNTIME};
-use futures::Future;
 use neo_api_rs::{
     mlua::{prelude::LuaResult, Lua},
     prelude::{
-        AutoCmdCbEvent, AutoCmdEvent, Mode, NeoApi, NeoBuffer, NeoPopup, NuiAlign, NuiApi,
-        NuiBorder, NuiBorderPadding, NuiBorderStyle, NuiBorderText, NuiDimension, NuiPopupOpts,
-        NuiRelative, NuiSize, PopupBorder, PopupRelative, PopupSize, PopupStyle, TextType,
-        WinOptions,
+        Anchor, AutoCmdCbEvent, AutoCmdEvent, AutoCmdOpts, Mode, NeoApi, NeoBuffer, NeoPopup, NeoWindow, PopupAlign, PopupBorder, PopupRelative, PopupSize, PopupStyle, TextType, WinOptions
     },
 };
 use std::{fs, io};
 
 pub async fn delete_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
-    //
+    let popup_buf = NeoApi::create_buf(lua, false, true)?;
+
+    let state = CONTAINER.lock().await;
+
+    let instance = state.active_instance_ref();
+    let cursor = instance.win.get_cursor(lua)?;
+
+    let filename = instance.buf_content[cursor.row_one_indexed() as usize].to_string();
+
+    let delete_info = format!("Delete: {filename}");
+
+    let popup_win = NeoPopup::open_win(
+        lua,
+        popup_buf.id(),
+        true,
+        WinOptions {
+            relative: PopupRelative::Editor,
+            width: Some(PopupSize::Percentage(1.)),
+            height: Some(PopupSize::Fixed(1)),
+            col: Some(PopupSize::Fixed(0)),
+            row: Some(PopupSize::Percentage(1.)),
+            style: Some(PopupStyle::Minimal),
+            border: PopupBorder::Rounded,
+            anchor: Anchor::NorthWest,
+            title: Some(TextType::String(
+                " Confirm (Enter), cancel (Esc / q) ".to_string(),
+            )),
+            title_pos: PopupAlign::Right,
+            noautocmd: true,
+            ..Default::default()
+        },
+    )?;
+
+    popup_buf.set_lines(lua, 0, -1, false, vec![delete_info])?;
 
     Ok(())
 }
 
 pub async fn create_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
-    //let popup_id = "create_items";
+    let popup_buf = NeoApi::create_buf(lua, false, true)?;
 
-    let buf = NeoApi::create_buf(lua, false, true)?;
-
-    let popup = NeoPopup::open_win(
+    let popup_win = NeoPopup::open_win(
         lua,
-        buf.id(),
+        popup_buf.id(),
         true,
         WinOptions {
             relative: PopupRelative::Editor,
@@ -34,70 +61,61 @@ pub async fn create_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
             row: Some(PopupSize::Percentage(0.2)),
             style: Some(PopupStyle::Minimal),
             border: PopupBorder::Rounded,
-            title: Some(TextType::String(" Create items (split by space) ".to_string())),
+            title: Some(TextType::String(
+                " Create items (split by space) ".to_string(),
+            )),
             noautocmd: true,
             ..Default::default()
         },
     )?;
 
-    // TODO add to state
-
     NeoApi::set_insert_mode(lua, true)?;
 
-    //let close_popup_event = lua.create_function(move |lua: &Lua, _: AutoCmdCbEvent| {
-    //let popup = NuiApi::get_popup(lua, &popup_id)?;
+    let close_popup_event = lua.create_function(move |lua: &Lua, _: ()| {
+        popup_win.close(lua, true)?;
+        NeoApi::set_insert_mode(lua, false)
+    })?;
 
-    //popup.unmount(lua)?;
+    NeoApi::create_autocmd(
+        lua,
+        &[AutoCmdEvent::BufLeave],
+        AutoCmdOpts {
+            buffer: Some(popup_buf.id()),
+            callback: close_popup_event.clone(),
+            desc: None,
+            group: None,
+            pattern: vec![],
+            once: true,
+        },
+    )?;
 
-    //NeoApi::set_insert_mode(lua, false)
-    //})?;
+    popup_buf.set_keymap(lua, Mode::Insert, "<Esc>", close_popup_event)?;
 
-    //popup.on(lua, &[AutoCmdEvent::BufLeave], close_popup_event)?;
+    let confirm_selection = lua.create_function(move |lua: &Lua, _: ()| {
+        let lines = popup_buf.get_lines(lua, 0, 1, false)?;
 
-    //let close_popup_cb = lua.create_function(move |lua: &Lua, _: ()| {
-    //let popup = NuiApi::get_popup(lua, &popup_id)?;
+        let items_cmd = lines[0].to_string();
 
-    //popup.unmount(lua)?;
+        let quote_count = items_cmd.chars().filter(|c| *c == '"').count();
 
-    //NeoApi::set_insert_mode(lua, false)
-    //})?;
+        if quote_count % 2 == 0 {
+            RUNTIME.block_on(async move {
+                let mut app = CONTAINER.lock().await;
+                let theme = app.theme.clone();
+                let instance = app.active_instance();
 
-    //popup.map(lua, Mode::Insert, "<Esc>", close_popup_cb, true)?;
+                let _ = create_items(instance, items_cmd).await;
+                let _ = instance.set_buffer_content(&theme, lua);
+            });
 
-    //let confirm_selection = lua.create_function(move |lua: &Lua, _: ()| {
-    //let popup = NuiApi::get_popup(lua, &popup_id)?;
+            // TODO feedback
+            popup_win.close(lua, true)?;
+        }
 
-    //if let Some(buf_id) = popup.bufnr(lua)? {
-    //let lines = NeoBuffer::new(buf_id).get_lines(lua, 0, 1, false)?;
+        Ok(())
+    })?;
 
-    //let items_cmd = lines[0].to_string();
-
-    //let quote_count = items_cmd.chars().filter(|c| *c == '"').count();
-
-    //if quote_count % 2 == 1 {
-    //// TODO feedback
-    //return Ok(());
-    //}
-
-    //RUNTIME.block_on(async move {
-    //let mut app = CONTAINER.lock().await;
-    //let theme = app.theme.clone();
-    //let instance = app.active_instance();
-
-    //let _ = create_items(instance, items_cmd).await;
-    //let _ = instance.set_buffer_content(&theme, lua);
-    //});
-
-    //// TODO feedback
-    //popup.unmount(lua)?;
-    //}
-
-    //Ok(())
-    //})?;
-
-    //popup.map(lua, Mode::Insert, "<Cr>", confirm_selection, true)?;
-
-    Ok(())
+    popup_buf.set_keymap(lua, Mode::Insert, "<Cr>", confirm_selection)
 }
 
 fn split_items(mut items_cmd: String) -> Vec<String> {
