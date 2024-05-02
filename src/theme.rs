@@ -1,6 +1,6 @@
 use crate::state::AppInstance;
 use neo_api_rs::mlua::prelude::*;
-use neo_api_rs::prelude::*;
+use neo_api_rs::*;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Theme {

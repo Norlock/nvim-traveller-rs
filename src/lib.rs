@@ -1,12 +1,13 @@
 use neo_api_rs::mlua;
 use neo_api_rs::mlua::prelude::*;
-use neo_api_rs::prelude::*;
+use neo_api_rs::*;
 use once_cell::sync::Lazy;
 use state::AppState;
-use tokio::runtime::{self, Runtime};
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::OnceLock;
 use theme::Theme;
+use tokio::runtime::{self, Runtime};
 use tokio::sync::Mutex;
 
 mod popup;
@@ -25,6 +26,8 @@ static CONTAINER: Lazy<Mutex<AppState>> = Lazy::new(|| {
     Mutex::new(app)
 });
 
+static CB_QUEUE: OnceLock<Mutex<CallBackQueue<AppState>>> = neo_api_rs::create_callback_container();
+
 static RUNTIME: Lazy<Runtime> = Lazy::new(|| {
     runtime::Builder::new_multi_thread()
         .enable_io()
@@ -34,6 +37,8 @@ static RUNTIME: Lazy<Runtime> = Lazy::new(|| {
 
 #[mlua::lua_module]
 fn nvim_traveller_rs(lua: &Lua) -> LuaResult<LuaTable> {
+    CB_QUEUE.init();
+
     let module = lua.create_table()?;
 
     let mut app = CONTAINER.blocking_lock();

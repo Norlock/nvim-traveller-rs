@@ -1,9 +1,8 @@
 use crate::theme::Theme;
 use crate::utils::Utils;
-use crate::{popup, CONTAINER};
+use crate::{popup, CB_QUEUE, CONTAINER};
 use neo_api_rs::mlua::prelude::*;
-use neo_api_rs::prelude::NuiApi;
-use neo_api_rs::prelude::*;
+use neo_api_rs::*;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::{
@@ -50,8 +49,6 @@ unsafe impl Sync for AppState {}
 impl AppState {
     pub fn init(&mut self, lua: &Lua) -> LuaResult<()> {
         self.history_dir = NeoApi::stdpath(lua, StdpathType::State)?;
-        NuiApi::init(lua)?;
-
         self.theme.init(lua)
     }
 
@@ -114,7 +111,7 @@ impl AppState {
         // Auto commands
         let buf_enter_aucmd = AutoCmdOpts {
             buffer: Some(buf_id),
-            callback: lua.create_async_function(buf_enter_callback)?,
+            callback: lua.create_function(buf_enter_callback)?,
             pattern: vec![],
             group: None,
             desc: None,
@@ -125,7 +122,7 @@ impl AppState {
 
         let buf_hidden_aucmd = AutoCmdOpts {
             buffer: Some(buf_id),
-            callback: lua.create_async_function(buf_wipeout_callback)?,
+            callback: lua.create_function(buf_wipeout_callback)?,
             pattern: vec![],
             group: None,
             desc: None,
@@ -248,28 +245,21 @@ impl AppInstance {
     }
 }
 
-async fn buf_enter_callback<'a>(_: &Lua, ev: AutoCmdCbEvent) -> LuaResult<()> {
-    fn callback(lua: &Lua, ev: AutoCmdCbEvent) {
-        let mut app = CONTAINER.blocking_lock();
+fn buf_enter_callback<'a>(_: &Lua, ev: AutoCmdCbEvent) -> LuaResult<()> {
+    fn callback(lua: &Lua, app: &mut AppState, ev: AutoCmdCbEvent) {
         let instance = app.set_active_instance(ev.buf);
         let _ = NeoApi::set_cwd(lua, &instance.cwd);
     }
 
-    CbContainer::add_to_queue(Box::new(callback), ev).await;
-
-    Ok(())
+    CB_QUEUE.push(Box::new(callback), ev)
 }
 
-async fn buf_wipeout_callback(_: &Lua, ev: AutoCmdCbEvent) -> LuaResult<()> {
-    fn callback(lua: &Lua, ev: AutoCmdCbEvent) {
-        let mut app = CONTAINER.blocking_lock();
-        let _ = NeoApi::notify(lua, &"Successfully called");
+fn buf_wipeout_callback(_: &Lua, ev: AutoCmdCbEvent) -> LuaResult<()> {
+    fn callback(_lua: &Lua, app: &mut AppState, ev: AutoCmdCbEvent) {
         app.instances.remove(&ev.buf);
     }
 
-    CbContainer::add_to_queue(Box::new(callback), ev).await;
-
-    Ok(())
+    CB_QUEUE.push(Box::new(callback), ev)
 }
 
 async fn toggle_hidden(lua: &Lua, _: ()) -> LuaResult<()> {
@@ -359,13 +349,11 @@ async fn open_item(lua: &Lua, open_in: OpenIn) -> LuaResult<()> {
         }
     }
 
-    CbContainer::exec_drop_lock(app, lua).await;
-
-    Ok(())
+    CB_QUEUE.exec(&mut app, lua)
 }
 
 async fn close_navigation(lua: &Lua, _: ()) -> LuaResult<()> {
-    let app = CONTAINER.lock().await;
+    let mut app = CONTAINER.lock().await;
 
     let instance = app.active_instance_ref();
     let path = instance.started_from.clone();
@@ -376,9 +364,7 @@ async fn close_navigation(lua: &Lua, _: ()) -> LuaResult<()> {
 
     NeoApi::open_file(lua, OpenIn::Buffer, path.to_str().unwrap())?;
 
-    CbContainer::exec_drop_lock(app, lua).await;
-
-    Ok(())
+    CB_QUEUE.exec(&mut app, lua)
 }
 
 fn nav_buffer_lines(path: &PathBuf, show_hidden: bool) -> LuaResult<Vec<String>> {

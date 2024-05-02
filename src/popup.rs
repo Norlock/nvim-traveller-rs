@@ -1,7 +1,7 @@
 use crate::{state::AppInstance, CONTAINER, RUNTIME};
 use neo_api_rs::{
     mlua::{prelude::LuaResult, Lua},
-    prelude::*,
+    *,
 };
 use std::{fs, io};
 
