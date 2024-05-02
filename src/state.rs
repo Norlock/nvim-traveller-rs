@@ -193,6 +193,9 @@ impl AppInstance {
         let delete_items = lua.create_async_function(popup::delete_items_popup)?;
         NeoApi::set_keymap(lua, Mode::Normal, "dd", delete_items, km_opts)?;
 
+        let select_item = lua.create_async_function(select_item)?;
+        NeoApi::set_keymap(lua, Mode::Normal, "y", select_item, km_opts)?;
+
         Ok(())
     }
 
@@ -260,6 +263,11 @@ fn buf_wipeout_callback(_: &Lua, ev: AutoCmdCbEvent) -> LuaResult<()> {
     }
 
     CB_QUEUE.push(Box::new(callback), ev)
+}
+
+async fn select_item(lua: &Lua, _: ()) -> LuaResult<()> {
+    //
+    Ok(())
 }
 
 async fn toggle_hidden(lua: &Lua, _: ()) -> LuaResult<()> {

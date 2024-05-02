@@ -30,9 +30,10 @@ pub async fn delete_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
             style: Some(PopupStyle::Minimal),
             border: PopupBorder::Rounded,
             anchor: Anchor::NorthWest,
-            title: Some(TextType::String(
-                " Confirm: (enter), cancel: (q) ".to_string(),
-            )),
+            title: Some(TextType::Tuples(vec![HlText::new(
+                " Confirm: (enter), cancel: (q) ",
+                "Question",
+            )])),
             title_pos: PopupAlign::Right,
             noautocmd: true,
             ..Default::default()
@@ -77,9 +78,10 @@ pub async fn create_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
             row: Some(PopupSize::Percentage(0.2)),
             style: Some(PopupStyle::Minimal),
             border: PopupBorder::Rounded,
-            title: Some(TextType::String(
-                " Create items (split by space) ".to_string(),
-            )),
+            title: Some(TextType::Tuples(vec![HlText::new(
+                " Create items (split by space) ",
+                "Question",
+            )])),
             noautocmd: true,
             ..Default::default()
         },

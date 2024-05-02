@@ -26,14 +26,14 @@ static CONTAINER: Lazy<Mutex<AppState>> = Lazy::new(|| {
     Mutex::new(app)
 });
 
-static CB_QUEUE: OnceLock<Mutex<CallBackQueue<AppState>>> = neo_api_rs::create_callback_container();
-
 static RUNTIME: Lazy<Runtime> = Lazy::new(|| {
     runtime::Builder::new_multi_thread()
         .enable_io()
         .build()
         .unwrap()
 });
+
+static CB_QUEUE: OnceLock<Mutex<CallBackQueue<AppState>>> = neo_api_rs::create_callback_container();
 
 #[mlua::lua_module]
 fn nvim_traveller_rs(lua: &Lua) -> LuaResult<LuaTable> {
