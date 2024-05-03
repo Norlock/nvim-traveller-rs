@@ -4,7 +4,7 @@ use crate::{popup, CB_QUEUE, CONTAINER};
 use neo_api_rs::mlua::prelude::*;
 use neo_api_rs::*;
 use std::cmp::Ordering;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::{
     fs::{self, DirEntry},
     path::PathBuf,
@@ -36,7 +36,7 @@ pub struct AppInstance {
     pub buf: NeoBuffer,
     pub show_hidden: bool,
     pub history: Vec<Location>,
-    pub selection: Vec<Location>,
+    pub selection: HashMap<PathBuf, HashSet<String>>,
     pub buf_content: Vec<String>,
     pub cwd: PathBuf,
     /// This is where traveller needs to return when quiting manually
@@ -92,7 +92,7 @@ impl AppState {
             win,
             show_hidden: false,
             history: vec![],
-            selection: vec![],
+            selection: HashMap::new(),
             buf_content: vec![],
             cwd,
             started_from,
@@ -199,6 +199,11 @@ impl AppInstance {
         Ok(())
     }
 
+    pub fn get_item(&self, lua: &Lua) -> LuaResult<String> {
+        let cursor = NeoWindow::CURRENT.get_cursor(lua)?;
+        Ok(self.buf_content[cursor.row_zero_indexed() as usize].clone())
+    } 
+
     pub fn set_buffer_content<'a>(&'a mut self, theme: &'a Theme, lua: &Lua) -> LuaResult<()> {
         NeoApi::set_cwd(lua, &self.cwd)?;
 
@@ -266,7 +271,29 @@ fn buf_wipeout_callback(_: &Lua, ev: AutoCmdCbEvent) -> LuaResult<()> {
 }
 
 async fn select_item(lua: &Lua, _: ()) -> LuaResult<()> {
-    //
+    let mut app = CONTAINER.lock().await;
+    let instance = app.active_instance();
+
+    let item = instance.get_item(lua)?;
+
+    let path_items = instance.selection.get_mut(&instance.cwd);
+
+    if let Some(path_items) = path_items {
+        if path_items.contains(&item) {
+            path_items.remove(&item);
+
+            if path_items.is_empty() {
+                instance.selection.remove(&instance.cwd);
+            }
+        } else {
+            path_items.insert(item);
+        }
+    } else {
+        instance.selection.insert(instance.cwd.clone(), [item].into());
+    }
+
+    NeoApi::notify_dbg(lua, &instance.selection)?;
+
     Ok(())
 }
 
@@ -290,10 +317,7 @@ async fn navigate_to_parent(lua: &Lua, _: ()) -> LuaResult<()> {
     }
 
     if !instance.buf_content.is_empty() {
-        let cursor = NeoWindow::CURRENT.get_cursor(lua)?;
-        let item = instance.buf_content[cursor.row_zero_indexed() as usize].clone();
-
-        instance.update_history(item);
+        instance.update_history(instance.get_item(lua)?);
     }
 
     // Before navigating to parent add to history to the parent directory already knows to which it
