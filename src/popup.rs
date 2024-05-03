@@ -40,6 +40,8 @@ pub async fn delete_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
         },
     )?;
 
+    //popup_win.close(lua)
+
     popup_buf.set_lines(lua, 0, -1, false, &[delete_info])?;
 
     let close_popup = lua.create_function(move |lua: &Lua, _: ()| popup_win.close(lua, true))?;
@@ -59,6 +61,69 @@ pub async fn delete_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
 
     popup_buf.set_keymap(lua, Mode::Normal, "q", close_popup)?;
     popup_buf.set_keymap(lua, Mode::Normal, "<Cr>", delete_item)?;
+
+    Ok(())
+}
+
+pub async fn select_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
+    let mut app = CONTAINER.lock().await;
+    let instance = app.active_instance();
+
+    let item = instance.get_item(lua)?;
+
+    let path_items = instance.selection.get_mut(&instance.cwd);
+
+    if let Some(path_items) = path_items {
+        if path_items.contains(&item) {
+            path_items.remove(&item);
+
+            if path_items.is_empty() {
+                instance.selection.remove(&instance.cwd);
+            }
+        } else {
+            path_items.insert(item);
+        }
+    } else {
+        instance
+            .selection
+            .insert(instance.cwd.clone(), [item].into());
+    }
+
+    let count: usize = instance.selection.iter().map(|sel| sel.1.len()).sum();
+    let text = format!("Selected: {}", count);
+
+    if let Some(popup) = &instance.selection_popup {
+        popup.buf.set_lines(lua, 0, -1, false, &[text])?;
+    } else {
+        let popup_buf = NeoApi::create_buf(lua, false, true)?;
+
+
+        popup_buf.set_lines(lua, 0, -1, false, &[text])?;
+
+        let popup_win = NeoPopup::open_win(
+            lua,
+            popup_buf.id(),
+            false,
+            WinOptions {
+                relative: PopupRelative::Editor,
+                width: Some(PopupSize::Fixed(30)),
+                height: Some(PopupSize::Fixed(4)),
+                col: Some(PopupSize::Fixed(10)),
+                row: Some(PopupSize::Percentage(0.1)),
+                style: Some(PopupStyle::Minimal),
+                border: PopupBorder::Solid,
+                anchor: Anchor::NorthEast,
+                focusable: false,
+                title: None,
+                noautocmd: true,
+                ..Default::default()
+            },
+        )?;
+
+        instance.selection_popup = Some(NeoPopup::new(popup_win, popup_buf));
+    }
+
+    NeoApi::notify_dbg(lua, &instance.selection)?;
 
     Ok(())
 }

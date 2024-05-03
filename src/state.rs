@@ -1,3 +1,4 @@
+use crate::popup::select_items_popup;
 use crate::theme::Theme;
 use crate::utils::Utils;
 use crate::{popup, CB_QUEUE, CONTAINER};
@@ -41,6 +42,7 @@ pub struct AppInstance {
     pub cwd: PathBuf,
     /// This is where traveller needs to return when quiting manually
     pub started_from: PathBuf,
+    pub selection_popup: Option<NeoPopup>
 }
 
 unsafe impl Send for AppState {}
@@ -96,6 +98,7 @@ impl AppState {
             buf_content: vec![],
             cwd,
             started_from,
+            selection_popup: None,
         };
 
         instance.update_history(filename);
@@ -193,7 +196,7 @@ impl AppInstance {
         let delete_items = lua.create_async_function(popup::delete_items_popup)?;
         NeoApi::set_keymap(lua, Mode::Normal, "dd", delete_items, km_opts)?;
 
-        let select_item = lua.create_async_function(select_item)?;
+        let select_item = lua.create_async_function(select_items_popup)?;
         NeoApi::set_keymap(lua, Mode::Normal, "y", select_item, km_opts)?;
 
         Ok(())
@@ -268,33 +271,6 @@ fn buf_wipeout_callback(_: &Lua, ev: AutoCmdCbEvent) -> LuaResult<()> {
     }
 
     CB_QUEUE.push(Box::new(callback), ev)
-}
-
-async fn select_item(lua: &Lua, _: ()) -> LuaResult<()> {
-    let mut app = CONTAINER.lock().await;
-    let instance = app.active_instance();
-
-    let item = instance.get_item(lua)?;
-
-    let path_items = instance.selection.get_mut(&instance.cwd);
-
-    if let Some(path_items) = path_items {
-        if path_items.contains(&item) {
-            path_items.remove(&item);
-
-            if path_items.is_empty() {
-                instance.selection.remove(&instance.cwd);
-            }
-        } else {
-            path_items.insert(item);
-        }
-    } else {
-        instance.selection.insert(instance.cwd.clone(), [item].into());
-    }
-
-    NeoApi::notify_dbg(lua, &instance.selection)?;
-
-    Ok(())
 }
 
 async fn toggle_hidden(lua: &Lua, _: ()) -> LuaResult<()> {
