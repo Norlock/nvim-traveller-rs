@@ -1,4 +1,7 @@
-use crate::{state::AppInstance, CONTAINER, RUNTIME};
+use crate::{
+    state::{AppInstance, InstanceCtx},
+    CONTAINER,
+};
 use neo_api_rs::{
     mlua::{prelude::LuaResult, Lua},
     *,
@@ -8,9 +11,9 @@ use std::{fs, io};
 pub async fn delete_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
     let popup_buf = NeoApi::create_buf(lua, false, true)?;
 
-    let state = CONTAINER.lock().await;
+    let app = CONTAINER.lock().await;
 
-    let instance = state.active_instance_ref();
+    let instance = app.active_instance_ref();
     let cursor = instance.win.get_cursor(lua)?;
 
     let filename = instance.buf_content[cursor.row_zero_indexed() as usize].to_string();
@@ -65,9 +68,8 @@ pub async fn delete_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
 
 pub async fn select_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
     let mut app = CONTAINER.lock().await;
-    let theme = app.theme.clone();
 
-    let instance = app.active_instance();
+    let InstanceCtx { instance, theme } = app.active_instance();
 
     let item = instance.get_item(lua)?;
 
@@ -99,8 +101,7 @@ pub async fn select_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
     ];
 
     if count == 0 {
-        instance.close_selection_popup(lua)?;
-        instance.theme_nav_buffer(theme, lua)?;
+        instance.close_selection_popup(lua, theme)?;
     } else if let Some(popup) = &instance.selection_popup {
         popup.buf.set_lines(lua, 0, -1, false, &lines)?;
         instance.theme_nav_buffer(theme, lua)?;
@@ -193,14 +194,11 @@ pub async fn create_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
         let quote_count = items_cmd.chars().filter(|c| *c == '"').count();
 
         if quote_count % 2 == 0 {
-            RUNTIME.block_on(async move {
-                let mut app = CONTAINER.lock().await;
-                let theme = app.theme.clone();
-                let instance = app.active_instance();
+            let mut app = CONTAINER.blocking_lock();
+            let InstanceCtx { theme, instance } = app.active_instance();
 
-                let _ = create_items(instance, items_cmd).await;
-                let _ = instance.set_buffer_content(&theme, lua);
-            });
+            create_items(instance, items_cmd)?;
+            instance.set_buffer_content(lua, theme)?;
 
             // TODO feedback
             popup_win.close(lua, true)?;
@@ -247,7 +245,7 @@ fn split_items(mut items_cmd: String) -> Vec<String> {
     items
 }
 
-async fn create_items(instance: &AppInstance, items_cmd: String) -> io::Result<()> {
+fn create_items(instance: &AppInstance, items_cmd: String) -> io::Result<()> {
     let items = split_items(items_cmd);
 
     for item in items.iter() {

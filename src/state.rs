@@ -42,11 +42,16 @@ pub struct AppInstance {
     pub cwd: PathBuf,
     /// This is where traveller needs to return when quiting manually
     pub started_from: PathBuf,
-    pub selection_popup: Option<NeoPopup>
+    pub selection_popup: Option<NeoPopup>,
 }
 
 unsafe impl Send for AppState {}
 unsafe impl Sync for AppState {}
+
+pub struct InstanceCtx<'a> {
+    pub instance: &'a mut AppInstance,
+    pub theme: Theme,
+}
 
 impl AppState {
     pub fn init(&mut self, lua: &Lua) -> LuaResult<()> {
@@ -54,11 +59,16 @@ impl AppState {
         self.theme.init(lua)
     }
 
-    pub fn active_instance(&mut self) -> &mut AppInstance {
-        self.instances.get_mut(&self.active_instance_idx).unwrap()
+    pub fn active_instance<'a>(&'a mut self) -> InstanceCtx<'a> {
+        let instance = self.instances.get_mut(&self.active_instance_idx).unwrap();
+
+        InstanceCtx {
+            instance,
+            theme: self.theme.clone(),
+        }
     }
 
-    pub fn active_instance_ref<'a>(&'a self) -> &'a AppInstance {
+    pub fn active_instance_ref<'a>(&'a self) -> &AppInstance {
         self.instances.get(&self.active_instance_idx).unwrap()
     }
 
@@ -68,8 +78,8 @@ impl AppState {
     }
 
     pub fn set_buffer_content(&mut self, lua: &Lua) -> LuaResult<()> {
-        let instance = self.instances.get_mut(&self.active_instance_idx).unwrap();
-        instance.set_buffer_content(&self.theme, lua)
+        let InstanceCtx { instance, theme } = self.active_instance();
+        instance.set_buffer_content(lua, theme)
     }
 
     pub fn open_navigation(&mut self, lua: &Lua) -> LuaResult<()> {
@@ -103,7 +113,7 @@ impl AppState {
 
         instance.update_history(filename);
         instance.add_keymaps(lua)?;
-        instance.set_buffer_content(&self.theme, lua)?;
+        instance.set_buffer_content(lua, self.theme)?;
 
         self.instances.insert(buf_id, instance);
         self.active_instance_idx = buf_id;
@@ -202,15 +212,20 @@ impl AppInstance {
         let undo_selection = lua.create_async_function(undo_selection)?;
         NeoApi::set_keymap(lua, Mode::Normal, "u", undo_selection, km_opts)?;
 
+        let copy_selection = lua.create_async_function(copy_selection)?;
+        NeoApi::set_keymap(lua, Mode::Normal, "pc", copy_selection, km_opts)?;
+
         Ok(())
     }
 
-    pub fn close_selection_popup(&mut self, lua: &Lua) -> LuaResult<()> {
+    pub fn close_selection_popup(&mut self, lua: &Lua, theme: Theme) -> LuaResult<()> {
         if let Some(popup) = &self.selection_popup {
             popup.win.close(lua, false)?;
         }
 
         self.selection_popup = None;
+
+        self.theme_nav_buffer(theme, lua)?;
 
         Ok(())
     }
@@ -218,9 +233,9 @@ impl AppInstance {
     pub fn get_item(&self, lua: &Lua) -> LuaResult<String> {
         let cursor = NeoWindow::CURRENT.get_cursor(lua)?;
         Ok(self.buf_content[cursor.row_zero_indexed() as usize].clone())
-    } 
+    }
 
-    pub fn set_buffer_content<'a>(&'a mut self, theme: &'a Theme, lua: &Lua) -> LuaResult<()> {
+    pub fn set_buffer_content<'a>(&'a mut self, lua: &Lua, theme: Theme) -> LuaResult<()> {
         NeoApi::set_cwd(lua, &self.cwd)?;
 
         self.buf.set_option_value(lua, "modifiable", true)?;
@@ -228,7 +243,7 @@ impl AppInstance {
         self.buf.set_lines(lua, 0, -1, true, &self.buf_content)?;
         self.buf.set_option_value(lua, "modifiable", false)?;
 
-        self.theme_nav_buffer(*theme, lua)?;
+        self.theme_nav_buffer(theme, lua)?;
         self.set_nav_cursor(lua)?;
 
         Ok(())
@@ -280,8 +295,8 @@ fn buf_enter_callback<'a>(_: &Lua, ev: AutoCmdCbEvent) -> LuaResult<()> {
 
 fn buf_wipeout_callback(_: &Lua, ev: AutoCmdCbEvent) -> LuaResult<()> {
     fn callback(lua: &Lua, app: &mut AppState, ev: AutoCmdCbEvent) {
-        let instance = app.instances.get_mut(&ev.buf).unwrap();
-        let _ = instance.close_selection_popup(lua);
+        let InstanceCtx { instance, theme } = app.active_instance();
+        let _ = instance.close_selection_popup(lua, theme);
 
         app.instances.remove(&ev.buf);
     }
@@ -289,28 +304,49 @@ fn buf_wipeout_callback(_: &Lua, ev: AutoCmdCbEvent) -> LuaResult<()> {
     CB_QUEUE.push(Box::new(callback), ev)
 }
 
-async fn undo_selection(lua: &Lua, _: ()) -> LuaResult<()> {
+async fn copy_selection(lua: &Lua, _: ()) -> LuaResult<()> {
     let mut app = CONTAINER.lock().await;
-    let instance = app.active_instance();
+    let InstanceCtx { instance, theme } = app.active_instance();
+
+
+    for paths in instance.selection.iter() {
+        let cwd = paths.0;
+
+        for item in paths.1.iter() {
+            let item_path = cwd.join(item);
+            let result = fs::copy(item_path, instance.cwd.join(item));
+
+            if let Err(err) = result {
+                NeoApi::notify(lua, &err)?;
+            }
+        }
+    }
 
     instance.selection = HashMap::new();
-    instance.close_selection_popup(lua)
+    instance.close_selection_popup(lua, theme)?;
+    instance.set_buffer_content(lua, theme)
+}
+
+async fn undo_selection(lua: &Lua, _: ()) -> LuaResult<()> {
+    let mut app = CONTAINER.lock().await;
+    let InstanceCtx { instance, theme } = app.active_instance();
+
+    instance.selection = HashMap::new();
+    instance.close_selection_popup(lua, theme)
 }
 
 async fn toggle_hidden(lua: &Lua, _: ()) -> LuaResult<()> {
     let mut app = CONTAINER.lock().await;
 
-    let theme = app.theme.clone();
-    let instance = app.active_instance();
+    let InstanceCtx { instance, theme } = app.active_instance();
     instance.show_hidden = !instance.show_hidden;
-    instance.set_buffer_content(&theme, lua)
+    instance.set_buffer_content(lua, theme)
 }
 
 async fn navigate_to_parent(lua: &Lua, _: ()) -> LuaResult<()> {
     let mut app = CONTAINER.lock().await;
-    let theme = app.theme.clone();
 
-    let instance = app.active_instance();
+    let InstanceCtx { instance, theme } = app.active_instance();
 
     if instance.cwd.parent().is_none() {
         return Ok(());
@@ -331,7 +367,7 @@ async fn navigate_to_parent(lua: &Lua, _: ()) -> LuaResult<()> {
 
     instance.cwd.pop();
     instance.update_history(format!("{item}/"));
-    instance.set_buffer_content(&theme, lua)
+    instance.set_buffer_content(lua, theme)
 }
 
 async fn open_item_in_buffer(lua: &Lua, _: ()) -> LuaResult<()> {
@@ -353,8 +389,7 @@ async fn open_item_in_hsplit(lua: &Lua, _: ()) -> LuaResult<()> {
 async fn open_item(lua: &Lua, open_in: OpenIn) -> LuaResult<()> {
     let mut app = CONTAINER.lock().await;
 
-    let theme = app.theme.clone();
-    let instance = app.active_instance();
+    let InstanceCtx { instance, theme } = app.active_instance();
 
     let cursor = NeoWindow::CURRENT.get_cursor(lua)?;
 
@@ -363,8 +398,8 @@ async fn open_item(lua: &Lua, open_in: OpenIn) -> LuaResult<()> {
         .get(cursor.row_zero_indexed() as usize)
         .map(|item| item.to_string());
 
+    // Empty directory
     if item.is_none() {
-        // Empty directory
         return Ok(());
     }
 
@@ -372,7 +407,7 @@ async fn open_item(lua: &Lua, open_in: OpenIn) -> LuaResult<()> {
 
     if item.ends_with("/") {
         instance.cwd.push(item.to_string());
-        instance.set_buffer_content(&theme, lua)?;
+        instance.set_buffer_content(lua, theme)?;
     } else {
         NeoApi::open_file(lua, open_in, &item)?;
 
