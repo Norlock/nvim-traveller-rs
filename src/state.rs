@@ -218,6 +218,8 @@ impl AppInstance {
         let move_selection = lua.create_async_function(move_selection)?;
         NeoApi::set_keymap(lua, Mode::Normal, "pm", move_selection, km_opts)?;
 
+        let delete_selection = lua.create_async_function(delete_selection)?;
+        NeoApi::set_keymap(lua, Mode::Normal, "ds", delete_selection, km_opts)?;
         Ok(())
     }
 
@@ -313,11 +315,19 @@ fn copy_or_move_selection(lua: &Lua, app: &mut AppState, copy: bool) -> LuaResul
         let cwd = paths.0;
 
         for item in paths.1.iter() {
-            let item_path = cwd.join(item);
+            let source = cwd.join(item);
+
             if copy {
-                fs::copy(item_path, instance.cwd.join(item))?;
+                let target = instance.cwd.join(item);
+
+                if source == target {
+                    let cp_target = instance.cwd.join(format!("copy_{}", item));
+                    fs::copy(source, cp_target)?;
+                } else {
+                    fs::copy(source, target)?;
+                }
             } else {
-                fs::rename(item_path, instance.cwd.join(item))?;
+                fs::rename(source, instance.cwd.join(item))?;
             }
         }
     }
@@ -345,6 +355,30 @@ async fn copy_selection(lua: &Lua, _: ()) -> LuaResult<()> {
     }
 
     Ok(())
+}
+
+async fn delete_selection(lua: &Lua, _: ()) -> LuaResult<()> {
+    let mut app = CONTAINER.lock().await;
+
+    let InstanceCtx { instance, theme } = app.active_instance();
+
+    for paths in instance.selection.iter() {
+        let cwd = paths.0;
+
+        for item in paths.1.iter() {
+            let target = cwd.join(item);
+
+            if target.is_dir() {
+                fs::remove_dir_all(target)?;
+            } else if target.is_file() {
+                fs::remove_file(target)?;
+            }
+        }
+    }
+
+    instance.selection = HashMap::new();
+    instance.close_selection_popup(lua, theme)?;
+    instance.set_buffer_content(lua, theme)
 }
 
 async fn undo_selection(lua: &Lua, _: ()) -> LuaResult<()> {

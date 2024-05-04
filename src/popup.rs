@@ -98,6 +98,7 @@ pub async fn select_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
         "[u]  undo".to_string(),
         "[pm] paste as move".to_string(),
         "[pc] paste as copy".to_string(),
+        "[ds] delete".to_string(),
     ];
 
     if count == 0 {
@@ -119,7 +120,7 @@ pub async fn select_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
                 relative: PopupRelative::Win,
                 win: Some(instance.win.id()),
                 width: Some(PopupSize::Fixed(20)),
-                height: Some(PopupSize::Fixed(4)),
+                height: Some(PopupSize::Fixed(5)),
                 col: Some(PopupSize::Fixed(1000)),
                 row: Some(PopupSize::Fixed(0)),
                 style: Some(PopupStyle::Minimal),
