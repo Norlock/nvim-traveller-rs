@@ -40,8 +40,6 @@ pub async fn delete_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
         },
     )?;
 
-    //popup_win.close(lua)
-
     popup_buf.set_lines(lua, 0, -1, false, &[delete_info])?;
 
     let close_popup = lua.create_function(move |lua: &Lua, _: ()| popup_win.close(lua, true))?;
@@ -90,29 +88,35 @@ pub async fn select_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
     }
 
     let count: usize = instance.selection.iter().map(|sel| sel.1.len()).sum();
-    let text = format!("Selected: {}", count);
+
+    let lines = [
+        format!("Selected: ({})", count),
+        "[u]  undo".to_string(),
+        "[pm] paste as move".to_string(),
+        "[pc] paste as copy".to_string(),
+    ];
 
     if let Some(popup) = &instance.selection_popup {
-        popup.buf.set_lines(lua, 0, -1, false, &[text])?;
+        popup.buf.set_lines(lua, 0, -1, false, &lines)?;
     } else {
         let popup_buf = NeoApi::create_buf(lua, false, true)?;
 
-
-        popup_buf.set_lines(lua, 0, -1, false, &[text])?;
+        popup_buf.set_lines(lua, 0, -1, false, &lines)?;
 
         let popup_win = NeoPopup::open_win(
             lua,
             popup_buf.id(),
             false,
             WinOptions {
-                relative: PopupRelative::Editor,
-                width: Some(PopupSize::Fixed(30)),
+                relative: PopupRelative::Win,
+                win: Some(instance.win.id()),
+                width: Some(PopupSize::Fixed(20)),
                 height: Some(PopupSize::Fixed(4)),
-                col: Some(PopupSize::Fixed(10)),
-                row: Some(PopupSize::Percentage(0.1)),
+                col: Some(PopupSize::Fixed(1000)),
+                row: Some(PopupSize::Fixed(0)),
                 style: Some(PopupStyle::Minimal),
-                border: PopupBorder::Solid,
-                anchor: Anchor::NorthEast,
+                border: PopupBorder::Rounded,
+                anchor: Anchor::NorthWest,
                 focusable: false,
                 title: None,
                 noautocmd: true,

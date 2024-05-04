@@ -123,7 +123,7 @@ impl AppState {
 
         NeoApi::create_autocmd(lua, &[AutoCmdEvent::BufEnter], buf_enter_aucmd)?;
 
-        let buf_hidden_aucmd = AutoCmdOpts {
+        let buf_wipeout_aucmd = AutoCmdOpts {
             buffer: Some(buf_id),
             callback: lua.create_function(buf_wipeout_callback)?,
             pattern: vec![],
@@ -132,7 +132,7 @@ impl AppState {
             once: true,
         };
 
-        NeoApi::create_autocmd(lua, &[AutoCmdEvent::BufWipeout], buf_hidden_aucmd)?;
+        NeoApi::create_autocmd(lua, &[AutoCmdEvent::BufWipeout], buf_wipeout_aucmd)?;
 
         Ok(())
     }
@@ -198,6 +198,19 @@ impl AppInstance {
 
         let select_item = lua.create_async_function(select_items_popup)?;
         NeoApi::set_keymap(lua, Mode::Normal, "y", select_item, km_opts)?;
+
+        let undo_selection = lua.create_async_function(undo_selection)?;
+        NeoApi::set_keymap(lua, Mode::Normal, "u", undo_selection, km_opts)?;
+
+        Ok(())
+    }
+
+    pub fn close_selection_popup(&mut self, lua: &Lua) -> LuaResult<()> {
+        if let Some(popup) = &self.selection_popup {
+            popup.win.close(lua, false)?;
+        }
+
+        self.selection_popup = None;
 
         Ok(())
     }
@@ -266,11 +279,22 @@ fn buf_enter_callback<'a>(_: &Lua, ev: AutoCmdCbEvent) -> LuaResult<()> {
 }
 
 fn buf_wipeout_callback(_: &Lua, ev: AutoCmdCbEvent) -> LuaResult<()> {
-    fn callback(_lua: &Lua, app: &mut AppState, ev: AutoCmdCbEvent) {
+    fn callback(lua: &Lua, app: &mut AppState, ev: AutoCmdCbEvent) {
+        let instance = app.instances.get_mut(&ev.buf).unwrap();
+        let _ = instance.close_selection_popup(lua);
+
         app.instances.remove(&ev.buf);
     }
 
     CB_QUEUE.push(Box::new(callback), ev)
+}
+
+async fn undo_selection(lua: &Lua, _: ()) -> LuaResult<()> {
+    let mut app = CONTAINER.lock().await;
+    let instance = app.active_instance();
+
+    instance.selection = HashMap::new();
+    instance.close_selection_popup(lua)
 }
 
 async fn toggle_hidden(lua: &Lua, _: ()) -> LuaResult<()> {
