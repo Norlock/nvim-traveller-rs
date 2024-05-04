@@ -215,6 +215,9 @@ impl AppInstance {
         let copy_selection = lua.create_async_function(copy_selection)?;
         NeoApi::set_keymap(lua, Mode::Normal, "pc", copy_selection, km_opts)?;
 
+        let move_selection = lua.create_async_function(move_selection)?;
+        NeoApi::set_keymap(lua, Mode::Normal, "pm", move_selection, km_opts)?;
+
         Ok(())
     }
 
@@ -304,20 +307,17 @@ fn buf_wipeout_callback(_: &Lua, ev: AutoCmdCbEvent) -> LuaResult<()> {
     CB_QUEUE.push(Box::new(callback), ev)
 }
 
-async fn copy_selection(lua: &Lua, _: ()) -> LuaResult<()> {
-    let mut app = CONTAINER.lock().await;
+fn copy_or_move_selection(lua: &Lua, app: &mut AppState, copy: bool) -> LuaResult<()> {
     let InstanceCtx { instance, theme } = app.active_instance();
-
-
     for paths in instance.selection.iter() {
         let cwd = paths.0;
 
         for item in paths.1.iter() {
             let item_path = cwd.join(item);
-            let result = fs::copy(item_path, instance.cwd.join(item));
-
-            if let Err(err) = result {
-                NeoApi::notify(lua, &err)?;
+            if copy {
+                fs::copy(item_path, instance.cwd.join(item))?;
+            } else {
+                fs::rename(item_path, instance.cwd.join(item))?;
             }
         }
     }
@@ -325,6 +325,26 @@ async fn copy_selection(lua: &Lua, _: ()) -> LuaResult<()> {
     instance.selection = HashMap::new();
     instance.close_selection_popup(lua, theme)?;
     instance.set_buffer_content(lua, theme)
+}
+
+async fn move_selection(lua: &Lua, _: ()) -> LuaResult<()> {
+    let mut app = CONTAINER.lock().await;
+
+    if let Err(err) = copy_or_move_selection(lua, &mut app, false) {
+        NeoApi::notify(lua, &err)?;
+    }
+
+    Ok(())
+}
+
+async fn copy_selection(lua: &Lua, _: ()) -> LuaResult<()> {
+    let mut app = CONTAINER.lock().await;
+
+    if let Err(err) = copy_or_move_selection(lua, &mut app, true) {
+        NeoApi::notify(lua, &err)?;
+    }
+
+    Ok(())
 }
 
 async fn undo_selection(lua: &Lua, _: ()) -> LuaResult<()> {
