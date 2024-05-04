@@ -69,9 +69,19 @@ impl AppInstance {
                     .add_highlight(lua, theme.navigation_ns as i32, "Directory", i, 0, -1)?;
             }
 
-            // TODO: selection Highlight!
+            if self.is_selected(item_name) {
+                self.buf
+                    .add_highlight(lua, theme.navigation_ns as i32, "Special", i, 0, -1)?;
+            }
         }
 
         Ok(())
+    }
+
+    fn is_selected(&self, item_name: &str) -> bool {
+        if let Some(cwd) = self.selection.get(&self.cwd) {
+            return cwd.contains(item_name);
+        }
+        false
     }
 }

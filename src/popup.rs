@@ -65,6 +65,8 @@ pub async fn delete_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
 
 pub async fn select_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
     let mut app = CONTAINER.lock().await;
+    let theme = app.theme.clone();
+
     let instance = app.active_instance();
 
     let item = instance.get_item(lua)?;
@@ -96,10 +98,15 @@ pub async fn select_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
         "[pc] paste as copy".to_string(),
     ];
 
-    if let Some(popup) = &instance.selection_popup {
+    if count == 0 {
+        instance.close_selection_popup(lua)?;
+        instance.theme_nav_buffer(theme, lua)?;
+    } else if let Some(popup) = &instance.selection_popup {
         popup.buf.set_lines(lua, 0, -1, false, &lines)?;
+        instance.theme_nav_buffer(theme, lua)?;
     } else {
         let popup_buf = NeoApi::create_buf(lua, false, true)?;
+        instance.theme_nav_buffer(theme, lua)?;
 
         popup_buf.set_lines(lua, 0, -1, false, &lines)?;
 
