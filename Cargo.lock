@@ -242,7 +242,7 @@ dependencies = [
 [[package]]
 name = "mlua"
 version = "0.9.7"
-source = "git+https://github.com/norlock/mlua?branch=fix/lua_module#c283cc3c17664e6a67fe9dcf93e528908d4491c0"
+source = "git+https://github.com/mlua-rs/mlua#8f3de8aa19ac7263297b080862c0a7a0ddb5de04"
 dependencies = [
  "bstr",
  "erased-serde",
@@ -258,8 +258,8 @@ dependencies = [
 
 [[package]]
 name = "mlua-sys"
-version = "0.5.2"
-source = "git+https://github.com/norlock/mlua?branch=fix/lua_module#c283cc3c17664e6a67fe9dcf93e528908d4491c0"
+version = "0.6.0"
+source = "git+https://github.com/mlua-rs/mlua#8f3de8aa19ac7263297b080862c0a7a0ddb5de04"
 dependencies = [
  "cc",
  "cfg-if",
@@ -269,7 +269,7 @@ dependencies = [
 [[package]]
 name = "mlua_derive"
 version = "0.9.2"
-source = "git+https://github.com/norlock/mlua?branch=fix/lua_module#c283cc3c17664e6a67fe9dcf93e528908d4491c0"
+source = "git+https://github.com/mlua-rs/mlua#8f3de8aa19ac7263297b080862c0a7a0ddb5de04"
 dependencies = [
  "proc-macro2",
  "quote",

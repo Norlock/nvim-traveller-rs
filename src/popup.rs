@@ -1,6 +1,6 @@
 use crate::{
     state::{AppInstance, InstanceCtx},
-    CONTAINER, RUNTIME,
+    CONTAINER,
 };
 use neo_api_rs::{
     mlua::{prelude::LuaResult, Lua},
@@ -153,8 +153,7 @@ pub async fn rename_item_popup(lua: &Lua, _: ()) -> LuaResult<()> {
         },
     )?;
 
-    popup_buf.set_keymap(lua, Mode::Normal, "<Esc>", close_popup.clone())?;
-    popup_buf.set_keymap(lua, Mode::Insert, "<Esc>", close_popup)?;
+    popup_buf.set_keymap(lua, Mode::Normal, "<Esc>", close_popup)?;
     popup_buf.set_keymap(lua, Mode::Normal, "<Cr>", rename_item.clone())?;
     popup_buf.set_keymap(lua, Mode::Insert, "<Cr>", rename_item)?;
 

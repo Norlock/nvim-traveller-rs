@@ -7,7 +7,6 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::OnceLock;
 use theme::Theme;
-use tokio::runtime::{self, Runtime};
 use tokio::sync::Mutex;
 
 mod popup;
@@ -24,13 +23,6 @@ static CONTAINER: Lazy<Mutex<AppState>> = Lazy::new(|| {
     };
 
     Mutex::new(app)
-});
-
-static RUNTIME: Lazy<Runtime> = Lazy::new(|| {
-    runtime::Builder::new_multi_thread()
-        .enable_io()
-        .build()
-        .unwrap()
 });
 
 static CB_QUEUE: OnceLock<Mutex<CallBackQueue<AppState>>> = neo_api_rs::create_callback_container();
@@ -55,7 +47,7 @@ fn nvim_traveller_rs(lua: &Lua) -> LuaResult<LuaTable> {
     Ok(module)
 }
 
-async fn open_navigation<'a, 'b>(lua: &'a Lua, _: ()) -> LuaResult<()> {
+async fn open_navigation(lua: &Lua, _: ()) -> LuaResult<()> {
     let mut app = CONTAINER.lock().await;
 
     if let Err(err) = app.open_navigation(&lua) {
