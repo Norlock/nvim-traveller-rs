@@ -1,4 +1,4 @@
-use crate::popup::select_items_popup;
+use crate::popup::{rename_item_popup, select_items_popup};
 use crate::theme::Theme;
 use crate::utils::Utils;
 use crate::{popup, CB_QUEUE, CONTAINER};
@@ -6,6 +6,7 @@ use neo_api_rs::mlua::prelude::*;
 use neo_api_rs::*;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
+use std::process::Command;
 use std::{
     fs::{self, DirEntry},
     path::PathBuf,
@@ -220,6 +221,10 @@ impl AppInstance {
 
         let delete_selection = lua.create_async_function(delete_selection)?;
         NeoApi::set_keymap(lua, Mode::Normal, "ds", delete_selection, km_opts)?;
+
+        let rename = lua.create_async_function(rename_item_popup)?;
+        NeoApi::set_keymap(lua, Mode::Normal, "r", rename, km_opts)?;
+
         Ok(())
     }
 
@@ -309,6 +314,23 @@ fn buf_wipeout_callback(_: &Lua, ev: AutoCmdCbEvent) -> LuaResult<()> {
     CB_QUEUE.push(Box::new(callback), ev)
 }
 
+fn copy_items_or_dir(lua: &Lua, source: PathBuf, target: PathBuf) -> LuaResult<()> {
+    if source.is_dir() {
+        let result = Command::new("cp")
+            .args(["-r", &source.to_string_lossy(), &target.to_string_lossy()])
+            .output()
+            .map_err(LuaError::external)?;
+
+        if !result.status.success() {
+            NeoApi::notify(lua, &String::from_utf8_lossy(&result.stderr))?;
+        }
+    } else {
+        fs::copy(source, target)?;
+    }
+
+    Ok(())
+}
+
 fn copy_or_move_selection(lua: &Lua, app: &mut AppState, copy: bool) -> LuaResult<()> {
     let InstanceCtx { instance, theme } = app.active_instance();
     for paths in instance.selection.iter() {
@@ -318,14 +340,13 @@ fn copy_or_move_selection(lua: &Lua, app: &mut AppState, copy: bool) -> LuaResul
             let source = cwd.join(item);
 
             if copy {
-                let target = instance.cwd.join(item);
+                let mut target = instance.cwd.join(item);
 
                 if source == target {
-                    let cp_target = instance.cwd.join(format!("copy_{}", item));
-                    fs::copy(source, cp_target)?;
-                } else {
-                    fs::copy(source, target)?;
+                    target = instance.cwd.join(format!("copy_{}", item));
                 }
+
+                copy_items_or_dir(lua, source, target)?;
             } else {
                 fs::rename(source, instance.cwd.join(item))?;
             }

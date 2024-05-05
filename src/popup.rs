@@ -1,12 +1,12 @@
 use crate::{
     state::{AppInstance, InstanceCtx},
-    CONTAINER,
+    CONTAINER, RUNTIME,
 };
 use neo_api_rs::{
     mlua::{prelude::LuaResult, Lua},
     *,
 };
-use std::{fs, io};
+use std::{fs, io, time::Duration};
 
 pub async fn delete_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
     let popup_buf = NeoApi::create_buf(lua, false, true)?;
@@ -14,9 +14,7 @@ pub async fn delete_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
     let app = CONTAINER.lock().await;
 
     let instance = app.active_instance_ref();
-    let cursor = instance.win.get_cursor(lua)?;
-
-    let filename = instance.buf_content[cursor.row_zero_indexed() as usize].to_string();
+    let filename = instance.get_item(lua)?;
     let delete_info = format!("Delete: {filename}");
     let file_path = instance.cwd.join(filename);
 
@@ -62,6 +60,103 @@ pub async fn delete_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
 
     popup_buf.set_keymap(lua, Mode::Normal, "q", close_popup)?;
     popup_buf.set_keymap(lua, Mode::Normal, "<Cr>", delete_item)?;
+
+    Ok(())
+}
+
+pub async fn rename_item_popup(lua: &Lua, _: ()) -> LuaResult<()> {
+    let popup_buf = NeoApi::create_buf(lua, false, true)?;
+    let mut app = CONTAINER.lock().await;
+
+    let InstanceCtx { instance, theme: _ } = app.active_instance();
+
+    let filename = instance.get_item(lua)?;
+    let filename_len = filename.len();
+    let file_path = instance.cwd.join(filename).to_string_lossy().to_string();
+    let file_path_len = file_path.len();
+
+    popup_buf.set_lines(lua, 0, -1, false, &[file_path])?;
+
+    let popup_win = NeoPopup::open_win(
+        lua,
+        popup_buf.id(),
+        true,
+        WinOptions {
+            relative: PopupRelative::Editor,
+            width: Some(PopupSize::Percentage(0.6)),
+            height: Some(PopupSize::Fixed(1)),
+            col: Some(PopupSize::Percentage(0.5)),
+            row: Some(PopupSize::Percentage(0.2)),
+            style: Some(PopupStyle::Minimal),
+            border: PopupBorder::Rounded,
+            title: Some(TextType::Tuples(vec![HlText::new(
+                " Confirm: (enter), cancel: (escape) ",
+                "Question",
+            )])),
+            title_pos: PopupAlign::Right,
+            noautocmd: true,
+            ..Default::default()
+        },
+    )?;
+
+    let cursor_col = file_path_len - filename_len;
+
+    popup_win.set_cursor(lua, WinCursor::from_zero_indexed(0, cursor_col as u32))?;
+
+    let rename_item = lua.create_function(move |lua: &Lua, _: ()| {
+        let mut app = CONTAINER.blocking_lock();
+        let InstanceCtx { instance, theme } = app.active_instance();
+
+        let items = popup_buf.get_lines(lua, 0, 1, false)?;
+
+        let source = instance.cwd.join(instance.get_item(lua)?);
+        let target = instance.cwd.join(items[0].clone());
+
+        // Disallow rename existing files
+        if source.is_file() && !target.is_file() || source.is_dir() && !target.is_dir() {
+            fs::rename(source, target)?;
+            instance.set_buffer_content(lua, theme)?;
+            instance.buf.set_current(lua)
+        } else {
+            instance.set_buffer_content(lua, theme)?;
+            instance.buf.set_current(lua)?;
+
+            NeoPopup::notify(
+                lua,
+                PopupNotify {
+                    level: PopupLevel::Error,
+                    title: "File or directory already exists".to_string(),
+                    messages: vec!["This is a protection for overwrites".to_string()],
+                    duration: Duration::from_secs(3),
+                },
+            )?;
+
+            NeoApi::notify(lua, &"File or directory already exists")
+        }
+    })?;
+
+    let close_popup = lua.create_function(move |lua: &Lua, _: ()| {
+        popup_win.close(lua, true)?;
+        NeoApi::set_insert_mode(lua, false)
+    })?;
+
+    NeoApi::create_autocmd(
+        lua,
+        &[AutoCmdEvent::BufLeave],
+        AutoCmdOpts {
+            buffer: Some(popup_buf.id()),
+            callback: close_popup.clone(),
+            desc: None,
+            group: None,
+            pattern: vec![],
+            once: true,
+        },
+    )?;
+
+    popup_buf.set_keymap(lua, Mode::Normal, "<Esc>", close_popup.clone())?;
+    popup_buf.set_keymap(lua, Mode::Insert, "<Esc>", close_popup)?;
+    popup_buf.set_keymap(lua, Mode::Normal, "<Cr>", rename_item.clone())?;
+    popup_buf.set_keymap(lua, Mode::Insert, "<Cr>", rename_item)?;
 
     Ok(())
 }
@@ -126,7 +221,7 @@ pub async fn select_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
                 style: Some(PopupStyle::Minimal),
                 border: PopupBorder::Rounded,
                 anchor: Anchor::NorthWest,
-                focusable: false,
+                focusable: Some(false),
                 title: None,
                 noautocmd: true,
                 ..Default::default()
@@ -258,7 +353,6 @@ fn create_items(instance: &AppInstance, items_cmd: String) -> io::Result<()> {
             }
             fs::create_dir_all(path)?;
         } else if path.is_file() || path.is_symlink() {
-            // TODO maybe overwrite?
             continue;
         } else {
             if let Some(parent) = path.parent() {
