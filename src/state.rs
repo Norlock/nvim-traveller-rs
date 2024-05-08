@@ -73,7 +73,7 @@ impl AppState {
         self.instances.get(&self.active_instance_idx).unwrap()
     }
 
-    pub fn set_active_instance<'a>(&'a mut self, idx: u32) -> &'a mut AppInstance {
+    pub fn set_active_instance(&mut self, idx: u32) -> &mut AppInstance {
         self.active_instance_idx = idx;
         self.instances.get_mut(&idx).unwrap()
     }
@@ -296,7 +296,7 @@ impl AppInstance {
 
 fn buf_enter_callback<'a>(_: &Lua, ev: AutoCmdCbEvent) -> LuaResult<()> {
     fn callback(lua: &Lua, app: &mut AppState, ev: AutoCmdCbEvent) {
-        let instance = app.set_active_instance(ev.buf);
+        let instance = app.set_active_instance(ev.buf.unwrap());
         let _ = NeoApi::set_cwd(lua, &instance.cwd);
     }
 
@@ -308,7 +308,7 @@ fn buf_wipeout_callback(_: &Lua, ev: AutoCmdCbEvent) -> LuaResult<()> {
         let InstanceCtx { instance, theme } = app.active_instance();
         let _ = instance.close_selection_popup(lua, theme);
 
-        app.instances.remove(&ev.buf);
+        app.instances.remove(&ev.buf.unwrap());
     }
 
     CB_QUEUE.push(Box::new(callback), ev)
