@@ -44,6 +44,11 @@ fn nvim_traveller_rs(lua: &Lua) -> LuaResult<LuaTable> {
         lua.create_async_function(open_navigation)?,
     )?;
 
+    module.set(
+        "directory_search",
+        lua.create_async_function(directory_search)?,
+    )?;
+
     Ok(module)
 }
 
@@ -51,6 +56,16 @@ async fn open_navigation(lua: &Lua, _: ()) -> LuaResult<()> {
     let mut app = CONTAINER.lock().await;
 
     if let Err(err) = app.open_navigation(&lua) {
+        NeoApi::notify(&lua, &err)?;
+    }
+
+    Ok(())
+}
+
+async fn directory_search(lua: &Lua, _: ()) -> LuaResult<()> {
+    let cwd = NeoApi::get_cwd(lua)?;
+
+    if let Err(err) = NeoFuzzy::files(lua, &cwd, FilesSearch::DirOnly).await {
         NeoApi::notify(&lua, &err)?;
     }
 

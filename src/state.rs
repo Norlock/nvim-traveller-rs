@@ -69,7 +69,7 @@ impl AppState {
         }
     }
 
-    pub fn active_instance_ref<'a>(&'a self) -> &AppInstance {
+    pub fn active_instance_ref(&self) -> &AppInstance {
         self.instances.get(&self.active_instance_idx).unwrap()
     }
 
@@ -84,7 +84,7 @@ impl AppState {
     }
 
     pub fn open_navigation(&mut self, lua: &Lua) -> LuaResult<()> {
-        let buf = NeoApi::create_buf(lua, false, true)?;
+        let buf = NeoBuffer::create(lua, false, true)?;
         buf.set_option_value(lua, "bufhidden", "wipe")?;
         let win = NeoApi::get_current_win(lua)?;
 

@@ -9,7 +9,7 @@ use neo_api_rs::{
 use std::{fs, io, time::Duration};
 
 pub async fn delete_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
-    let popup_buf = NeoApi::create_buf(lua, false, true)?;
+    let popup_buf = NeoBuffer::create(lua, false, true)?;
 
     let app = CONTAINER.lock().await;
 
@@ -20,7 +20,7 @@ pub async fn delete_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
 
     let popup_win = NeoPopup::open_win(
         lua,
-        popup_buf.id(),
+        &popup_buf,
         true,
         WinOptions {
             relative: PopupRelative::Editor,
@@ -65,7 +65,7 @@ pub async fn delete_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
 }
 
 pub async fn rename_item_popup(lua: &Lua, _: ()) -> LuaResult<()> {
-    let popup_buf = NeoApi::create_buf(lua, false, true)?;
+    let popup_buf = NeoBuffer::create(lua, false, true)?;
     let mut app = CONTAINER.lock().await;
 
     let InstanceCtx { instance, theme: _ } = app.active_instance();
@@ -79,7 +79,7 @@ pub async fn rename_item_popup(lua: &Lua, _: ()) -> LuaResult<()> {
 
     let popup_win = NeoPopup::open_win(
         lua,
-        popup_buf.id(),
+        &popup_buf,
         true,
         WinOptions {
             relative: PopupRelative::Editor,
@@ -127,7 +127,7 @@ pub async fn rename_item_popup(lua: &Lua, _: ()) -> LuaResult<()> {
                     level: PopupLevel::Error,
                     title: "File or directory already exists".to_string(),
                     messages: vec!["This is a protection for overwrites".to_string()],
-                    duration: Duration::from_secs(3),
+                    duration: Duration::from_secs(4),
                 },
             )?;
 
@@ -201,14 +201,14 @@ pub async fn select_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
         popup.buf.set_lines(lua, 0, -1, false, &lines)?;
         instance.theme_nav_buffer(theme, lua)?;
     } else {
-        let popup_buf = NeoApi::create_buf(lua, false, true)?;
+        let popup_buf = NeoBuffer::create(lua, false, true)?;
         instance.theme_nav_buffer(theme, lua)?;
 
         popup_buf.set_lines(lua, 0, -1, false, &lines)?;
 
-        let popup_win = NeoPopup::open_win(
+        let popup = NeoPopup::open(
             lua,
-            popup_buf.id(),
+            popup_buf,
             false,
             WinOptions {
                 relative: PopupRelative::Win,
@@ -227,7 +227,7 @@ pub async fn select_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
             },
         )?;
 
-        instance.selection_popup = Some(NeoPopup::new(popup_win, popup_buf));
+        instance.selection_popup = Some(popup);
     }
 
     NeoApi::notify_dbg(lua, &instance.selection)?;
@@ -236,11 +236,11 @@ pub async fn select_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
 }
 
 pub async fn create_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
-    let popup_buf = NeoApi::create_buf(lua, false, true)?;
+    let popup_buf = NeoBuffer::create(lua, false, true)?;
 
     let popup_win = NeoPopup::open_win(
         lua,
-        popup_buf.id(),
+        &popup_buf,
         true,
         WinOptions {
             relative: PopupRelative::Editor,
