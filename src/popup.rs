@@ -11,7 +11,7 @@ use std::{fs, io, time::Duration};
 pub async fn delete_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
     let popup_buf = NeoBuffer::create(lua, false, true)?;
 
-    let app = CONTAINER.lock().await;
+    let app = CONTAINER.fast_lock();
 
     let instance = app.active_instance_ref();
     let filename = instance.get_item(lua)?;
@@ -52,7 +52,7 @@ pub async fn delete_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
             let _ = fs::remove_dir_all(&file_path);
         }
 
-        let mut app = CONTAINER.blocking_lock();
+        let mut app = CONTAINER.fast_lock();
         app.set_buffer_content(lua)?;
 
         popup_win.close(lua, true)
@@ -66,7 +66,7 @@ pub async fn delete_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
 
 pub async fn rename_item_popup(lua: &Lua, _: ()) -> LuaResult<()> {
     let popup_buf = NeoBuffer::create(lua, false, true)?;
-    let mut app = CONTAINER.lock().await;
+    let mut app = CONTAINER.fast_lock();
 
     let InstanceCtx { instance, theme: _ } = app.active_instance();
 
@@ -104,7 +104,7 @@ pub async fn rename_item_popup(lua: &Lua, _: ()) -> LuaResult<()> {
     popup_win.set_cursor(lua, WinCursor::from_zero_indexed(0, cursor_col as u32))?;
 
     let rename_item = lua.create_function(move |lua: &Lua, _: ()| {
-        let mut app = CONTAINER.blocking_lock();
+        let mut app = CONTAINER.fast_lock();
         let InstanceCtx { instance, theme } = app.active_instance();
 
         let items = popup_buf.get_lines(lua, 0, 1, false)?;
@@ -161,7 +161,7 @@ pub async fn rename_item_popup(lua: &Lua, _: ()) -> LuaResult<()> {
 }
 
 pub async fn select_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
-    let mut app = CONTAINER.lock().await;
+    let mut app = CONTAINER.fast_lock();
 
     let InstanceCtx { instance, theme } = app.active_instance();
 
@@ -289,7 +289,7 @@ pub async fn create_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
         let quote_count = items_cmd.chars().filter(|c| *c == '"').count();
 
         if quote_count % 2 == 0 {
-            let mut app = CONTAINER.blocking_lock();
+            let mut app = CONTAINER.fast_lock();
             let InstanceCtx { theme, instance } = app.active_instance();
 
             create_items(instance, items_cmd)?;

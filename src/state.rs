@@ -359,7 +359,7 @@ fn copy_or_move_selection(lua: &Lua, app: &mut AppState, copy: bool) -> LuaResul
 }
 
 async fn move_selection(lua: &Lua, _: ()) -> LuaResult<()> {
-    let mut app = CONTAINER.lock().await;
+    let mut app = CONTAINER.fast_lock();
 
     if let Err(err) = copy_or_move_selection(lua, &mut app, false) {
         NeoApi::notify(lua, &err)?;
@@ -369,7 +369,7 @@ async fn move_selection(lua: &Lua, _: ()) -> LuaResult<()> {
 }
 
 async fn copy_selection(lua: &Lua, _: ()) -> LuaResult<()> {
-    let mut app = CONTAINER.lock().await;
+    let mut app = CONTAINER.fast_lock();
 
     if let Err(err) = copy_or_move_selection(lua, &mut app, true) {
         NeoApi::notify(lua, &err)?;
@@ -379,7 +379,7 @@ async fn copy_selection(lua: &Lua, _: ()) -> LuaResult<()> {
 }
 
 async fn delete_selection(lua: &Lua, _: ()) -> LuaResult<()> {
-    let mut app = CONTAINER.lock().await;
+    let mut app = CONTAINER.fast_lock();
 
     let InstanceCtx { instance, theme } = app.active_instance();
 
@@ -403,7 +403,7 @@ async fn delete_selection(lua: &Lua, _: ()) -> LuaResult<()> {
 }
 
 async fn undo_selection(lua: &Lua, _: ()) -> LuaResult<()> {
-    let mut app = CONTAINER.lock().await;
+    let mut app = CONTAINER.fast_lock();
     let InstanceCtx { instance, theme } = app.active_instance();
 
     instance.selection = HashMap::new();
@@ -411,7 +411,7 @@ async fn undo_selection(lua: &Lua, _: ()) -> LuaResult<()> {
 }
 
 async fn toggle_hidden(lua: &Lua, _: ()) -> LuaResult<()> {
-    let mut app = CONTAINER.lock().await;
+    let mut app = CONTAINER.fast_lock();
 
     let InstanceCtx { instance, theme } = app.active_instance();
     instance.show_hidden = !instance.show_hidden;
@@ -419,7 +419,7 @@ async fn toggle_hidden(lua: &Lua, _: ()) -> LuaResult<()> {
 }
 
 async fn navigate_to_parent(lua: &Lua, _: ()) -> LuaResult<()> {
-    let mut app = CONTAINER.lock().await;
+    let mut app = CONTAINER.fast_lock();
 
     let InstanceCtx { instance, theme } = app.active_instance();
 
@@ -462,7 +462,7 @@ async fn open_item_in_hsplit(lua: &Lua, _: ()) -> LuaResult<()> {
 }
 
 async fn open_item(lua: &Lua, open_in: OpenIn) -> LuaResult<()> {
-    let mut app = CONTAINER.lock().await;
+    let mut app = CONTAINER.lock().unwrap();
 
     let InstanceCtx { instance, theme } = app.active_instance();
 
@@ -495,7 +495,7 @@ async fn open_item(lua: &Lua, open_in: OpenIn) -> LuaResult<()> {
 }
 
 async fn close_navigation(lua: &Lua, _: ()) -> LuaResult<()> {
-    let mut app = CONTAINER.lock().await;
+    let mut app = CONTAINER.lock().unwrap();
 
     let instance = app.active_instance_ref();
     let path = instance.started_from.clone();

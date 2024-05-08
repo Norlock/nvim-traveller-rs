@@ -5,9 +5,9 @@ use once_cell::sync::Lazy;
 use state::AppState;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::Mutex;
 use std::sync::OnceLock;
 use theme::Theme;
-use tokio::sync::Mutex;
 
 mod popup;
 mod state;
@@ -33,7 +33,7 @@ fn nvim_traveller_rs(lua: &Lua) -> LuaResult<LuaTable> {
 
     let module = lua.create_table()?;
 
-    let mut app = CONTAINER.blocking_lock();
+    let mut app = CONTAINER.lock().unwrap();
 
     if let Err(err) = app.init(lua) {
         NeoApi::notify(lua, &err)?;
@@ -53,7 +53,7 @@ fn nvim_traveller_rs(lua: &Lua) -> LuaResult<LuaTable> {
 }
 
 async fn open_navigation(lua: &Lua, _: ()) -> LuaResult<()> {
-    let mut app = CONTAINER.lock().await;
+    let mut app = CONTAINER.lock().unwrap();
 
     if let Err(err) = app.open_navigation(&lua) {
         NeoApi::notify(&lua, &err)?;
