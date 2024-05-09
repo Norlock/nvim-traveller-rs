@@ -25,6 +25,10 @@ impl Utils {
         }
     }
 
+    pub fn home_directory() -> PathBuf {
+         std::env::var_os("HOME").unwrap().into()
+    }
+
     fn strip_trailing_newline(input: &str) -> &str {
         input
             .strip_suffix("\r\n")

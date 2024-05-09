@@ -63,9 +63,7 @@ async fn open_navigation(lua: &Lua, _: ()) -> LuaResult<()> {
 }
 
 async fn directory_search(lua: &Lua, _: ()) -> LuaResult<()> {
-    let cwd = NeoApi::get_cwd(lua)?;
-
-    if let Err(err) = NeoFuzzy::files(lua, cwd, FilesSearch::DirOnly).await {
+    if let Err(err) = NeoFuzzy::files(lua, utils::Utils::home_directory(), FilesSearch::DirOnly).await {
         NeoApi::notify(&lua, &err)?;
     }
 
