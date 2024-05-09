@@ -12,10 +12,10 @@ pub struct Theme {
 
 impl Theme {
     pub fn init(&mut self, lua: &Lua) -> LuaResult<()> {
-        self.navigation_ns = NeoApi::create_namespace(lua, "TravellerNavigation")?;
-        self.popup_ns = NeoApi::create_namespace(lua, "TravellerInfo")?;
-        self.help_ns = NeoApi::create_namespace(lua, "TravellerHelp")?;
-        self.status_ns = NeoApi::create_namespace(lua, "TravellerStatus")?;
+        self.navigation_ns = NeoTheme::create_namespace(lua, "TravellerNavigation")?;
+        self.popup_ns = NeoTheme::create_namespace(lua, "TravellerInfo")?;
+        self.help_ns = NeoTheme::create_namespace(lua, "TravellerHelp")?;
+        self.status_ns = NeoTheme::create_namespace(lua, "TravellerStatus")?;
 
         Ok(())
     }
@@ -41,18 +41,16 @@ impl AppInstance {
             let ui = &NeoApi::list_uis(lua)?[0];
             self.win.set_option_value(lua, "cursorline", false)?;
 
-            let text = "Traveller - (Empty directory)".to_string();
+            let text = "Traveller - (Empty directory)";
             let width = text.len() as u32;
             let center = ((ui.width - width) as f32 * 0.5).round() as u32 - 2;
 
-            let virt_text_item = lua.create_table()?;
-            virt_text_item.push(text)?;
-            virt_text_item.push("Comment")?;
+            let hl_text = HLText::new(text, "Comment");
 
             let opts = ExtmarkOpts {
                 id: Some(1),
                 end_row: Some(0),
-                virt_text: Some(vec![virt_text_item]),
+                virt_text: Some(vec![hl_text]),
                 virt_text_win_col: Some(center),
                 ..Default::default()
             };
@@ -80,8 +78,9 @@ impl AppInstance {
 
     fn is_selected(&self, item_name: &str) -> bool {
         if let Some(cwd) = self.selection.get(&self.cwd) {
-            return cwd.contains(item_name);
+            cwd.contains(item_name)
+        } else {
+            false
         }
-        false
     }
 }

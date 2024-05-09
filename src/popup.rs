@@ -31,7 +31,7 @@ pub async fn delete_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
             style: Some(PopupStyle::Minimal),
             border: PopupBorder::Rounded,
             anchor: Anchor::NorthWest,
-            title: Some(TextType::Tuples(vec![HlText::new(
+            title: Some(TextType::Tuples(vec![HLText::new(
                 " Confirm: (enter), cancel: (q) ",
                 "Question",
             )])),
@@ -89,7 +89,7 @@ pub async fn rename_item_popup(lua: &Lua, _: ()) -> LuaResult<()> {
             row: Some(PopupSize::Percentage(0.2)),
             style: Some(PopupStyle::Minimal),
             border: PopupBorder::Rounded,
-            title: Some(TextType::Tuples(vec![HlText::new(
+            title: Some(TextType::Tuples(vec![HLText::new(
                 " Confirm: (enter), cancel: (escape) ",
                 "Question",
             )])),
@@ -250,7 +250,7 @@ pub async fn create_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
             row: Some(PopupSize::Percentage(0.2)),
             style: Some(PopupStyle::Minimal),
             border: PopupBorder::Rounded,
-            title: Some(TextType::Tuples(vec![HlText::new(
+            title: Some(TextType::Tuples(vec![HLText::new(
                 " Create items (split by space) ",
                 "Question",
             )])),

@@ -3,6 +3,7 @@ use neo_api_rs::mlua::prelude::*;
 use neo_api_rs::*;
 use once_cell::sync::Lazy;
 use state::AppState;
+use utils::Utils;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -63,7 +64,7 @@ async fn open_navigation(lua: &Lua, _: ()) -> LuaResult<()> {
 }
 
 async fn directory_search(lua: &Lua, _: ()) -> LuaResult<()> {
-    if let Err(err) = NeoFuzzy::files(lua, utils::Utils::home_directory(), FilesSearch::DirOnly).await {
+    if let Err(err) = NeoFuzzy::files(lua, Utils::home_directory(), FilesSearch::DirOnly).await {
         NeoApi::notify(&lua, &err)?;
     }
 
