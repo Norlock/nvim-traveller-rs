@@ -94,7 +94,6 @@ pub async fn rename_item_popup(lua: &Lua, _: ()) -> LuaResult<()> {
                 "Question",
             )])),
             title_pos: PopupAlign::Right,
-            noautocmd: true,
             ..Default::default()
         },
     )?;
@@ -118,20 +117,15 @@ pub async fn rename_item_popup(lua: &Lua, _: ()) -> LuaResult<()> {
             instance.set_buffer_content(lua, theme)?;
             instance.buf.set_current(lua)
         } else {
-            instance.set_buffer_content(lua, theme)?;
-            instance.buf.set_current(lua)?;
-
             NeoPopup::notify(
                 lua,
                 PopupNotify {
                     level: PopupLevel::Error,
                     title: "File or directory already exists".to_string(),
-                    messages: vec!["This is a protection for overwrites".to_string()],
-                    duration: Duration::from_secs(4),
+                    messages: vec!["If you want overwrite the file do it manually".to_string()],
+                    duration: Duration::from_secs(5),
                 },
-            )?;
-
-            NeoApi::notify(lua, &"File or directory already exists")
+            )
         }
     })?;
 
@@ -149,7 +143,7 @@ pub async fn rename_item_popup(lua: &Lua, _: ()) -> LuaResult<()> {
             desc: None,
             group: None,
             pattern: vec![],
-            once: true,
+            once: false,
         },
     )?;
 
