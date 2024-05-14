@@ -280,7 +280,6 @@ dependencies = [
  "macros",
  "mlua",
  "once_cell",
- "serde",
  "tokio",
 ]
 

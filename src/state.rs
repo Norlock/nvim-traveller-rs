@@ -83,22 +83,28 @@ impl AppState {
         instance.set_buffer_content(lua, theme)
     }
 
-    pub fn open_navigation(&mut self, lua: &Lua) -> LuaResult<()> {
+    pub fn open_navigation(&mut self, lua: &Lua, started_from: PathBuf) -> LuaResult<()> {
         let buf = NeoBuffer::create(lua, false, true)?;
         buf.set_option_value(lua, "bufhidden", "wipe")?;
         let win = NeoApi::get_current_win(lua)?;
 
-        let started_from = NeoApi::get_filepath(lua)?;
-        let filename = started_from
-            .file_name()
-            .unwrap()
-            .to_string_lossy()
-            .to_string();
-
-        let cwd = started_from.parent().unwrap().to_path_buf();
-
         buf.set_current(lua)?;
         let buf_id = buf.id();
+        let filename: Option<String>;
+        let cwd: PathBuf;
+
+        if started_from.is_file() {
+            filename = Some(started_from
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .to_string());
+
+            cwd = started_from.parent().unwrap().to_path_buf();
+        } else {
+            filename = None;
+            cwd = started_from.clone();
+        };
 
         let mut instance = AppInstance {
             buf,
@@ -112,7 +118,10 @@ impl AppState {
             selection_popup: None,
         };
 
-        instance.update_history(filename);
+        if let Some(filename) = filename {
+            instance.update_history(filename);
+        } 
+        
         instance.add_keymaps(lua)?;
         instance.set_buffer_content(lua, self.theme)?;
 

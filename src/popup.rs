@@ -85,8 +85,8 @@ pub async fn rename_item_popup(lua: &Lua, _: ()) -> LuaResult<()> {
             relative: PopupRelative::Editor,
             width: Some(PopupSize::Percentage(0.6)),
             height: Some(PopupSize::Fixed(1)),
-            col: Some(PopupSize::Percentage(0.5)),
-            row: Some(PopupSize::Percentage(0.2)),
+            row: Some(PopupSize::Percentage(0.1)),
+            col: Some(PopupSize::Percentage(0.2)),
             style: Some(PopupStyle::Minimal),
             border: PopupBorder::Rounded,
             title: Some(TextType::Tuples(vec![HLText::new(
@@ -240,8 +240,8 @@ pub async fn create_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
             relative: PopupRelative::Editor,
             width: Some(PopupSize::Percentage(0.6)),
             height: Some(PopupSize::Fixed(1)),
-            col: Some(PopupSize::Percentage(0.5)),
-            row: Some(PopupSize::Percentage(0.2)),
+            col: Some(PopupSize::Percentage(0.2)),
+            row: Some(PopupSize::Percentage(0.1)),
             style: Some(PopupStyle::Minimal),
             border: PopupBorder::Rounded,
             title: Some(TextType::Tuples(vec![HLText::new(
