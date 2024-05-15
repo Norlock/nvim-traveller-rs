@@ -57,7 +57,12 @@ fn nvim_traveller_rs(lua: &Lua) -> LuaResult<LuaTable> {
 async fn open_navigation(lua: &Lua, _: ()) -> LuaResult<()> {
     let mut app = CONTAINER.lock().unwrap();
 
-    let started_from = NeoApi::get_filepath(lua)?;
+    let mut started_from = NeoApi::get_filepath(lua)?;
+
+    if !started_from.is_file() {
+        started_from = NeoApi::get_filedir(lua)?;
+    }
+
     if let Err(err) = app.open_navigation(&lua, started_from) {
         NeoApi::notify(&lua, &err)?;
     }

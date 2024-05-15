@@ -251,6 +251,7 @@ impl AppInstance {
 
     pub fn get_item(&self, lua: &Lua) -> LuaResult<String> {
         let cursor = NeoWindow::CURRENT.get_cursor(lua)?;
+        NeoApi::notify(lua, &cursor.row_zero_indexed())?;
         Ok(self.buf_content[cursor.row_zero_indexed() as usize].clone())
     }
 

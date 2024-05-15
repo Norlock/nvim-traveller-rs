@@ -72,7 +72,8 @@ pub async fn rename_item_popup(lua: &Lua, _: ()) -> LuaResult<()> {
 
     let filename = instance.get_item(lua)?;
     let filename_len = filename.len();
-    let file_path = instance.cwd.join(filename).to_string_lossy().to_string();
+    let source_path = instance.cwd.join(filename);
+    let file_path = source_path.to_string_lossy().to_string();
     let file_path_len = file_path.len();
 
     popup_buf.set_lines(lua, 0, -1, false, &[file_path])?;
@@ -106,10 +107,10 @@ pub async fn rename_item_popup(lua: &Lua, _: ()) -> LuaResult<()> {
         let mut app = CONTAINER.fast_lock();
         let InstanceCtx { instance, theme } = app.active_instance();
 
-        let items = popup_buf.get_lines(lua, 0, 1, false)?;
+        let line = NeoApi::get_current_line(lua)?;
 
-        let source = instance.cwd.join(instance.get_item(lua)?);
-        let target = instance.cwd.join(items[0].clone());
+        let source = &source_path;
+        let target = instance.cwd.join(line);
 
         // Disallow rename existing files
         if source.is_file() && !target.is_file() || source.is_dir() && !target.is_dir() {
