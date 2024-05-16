@@ -67,20 +67,25 @@ impl FuzzyConfig for FuzzyVisitor {
         FilesSearch::DirOnly
     }
 
-    fn on_enter(&self, lua: &Lua, selected: PathBuf) -> LuaResult<()> {
-        //let mut app = CONTAINER.blocking_lock();
-
-
-        //if let Err(err) = app.open_navigation(&lua, selected) {
-            //NeoApi::notify(&lua, &err)?;
-        //}
-
-        Ok(())
+    fn on_enter(&self, lua: &Lua, selected: PathBuf) {
+        RTM.block_on(async move {
+            if let Err(err) = AppState::open_navigation(&lua, selected).await {
+                let _ = NeoApi::notify(&lua, &err);
+            }
+        })
     }
+
+    //async fn on_enter(&self, lua: &Lua, selected: PathBuf) -> Result<()> {
+    //if let Err(err) = AppState::open_navigation(&lua, selected).await {
+    //NeoApi::notify(&lua, &err);
+    //}
+
+    //Ok(())
+    //}
 }
 
 async fn directory_search(lua: &Lua, _: ()) -> LuaResult<()> {
-    if let Err(err) = NeoFuzzy::files(lua, Arc::new(FuzzyVisitor)).await {
+    if let Err(err) = NeoFuzzy::files(lua, Box::new(FuzzyVisitor)).await {
         NeoApi::notify(&lua, &err)?;
     }
 
