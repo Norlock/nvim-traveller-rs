@@ -30,7 +30,7 @@ impl Location {
 pub struct AppState {
     pub history_dir: RwLock<PathBuf>,
     pub theme: RwLock<Theme>,
-    pub active_instance_idx: AtomicU32,
+    pub active_buf: AtomicU32,
     pub instances: RwLock<HashMap<u32, AppInstance>>,
 }
 
@@ -51,11 +51,6 @@ pub struct AppInstance {
 unsafe impl Send for AppState {}
 unsafe impl Sync for AppState {}
 
-pub struct InstanceCtx<'a> {
-    pub instance: &'a mut AppInstance,
-    pub theme: Theme,
-}
-
 impl AppState {
     pub fn init(lua: &Lua) -> LuaResult<()> {
         //self.history_dir = NeoApi::stdpath(lua, StdpathType::State)?;
@@ -65,14 +60,12 @@ impl AppState {
         theme.init(lua)
     }
 
-    pub fn active_instance() -> u32 {
-        CONTAINER
-            .active_instance_idx
-            .load(atomic::Ordering::Relaxed)
+    pub fn active_buf() -> u32 {
+        CONTAINER.active_buf.load(atomic::Ordering::Relaxed)
     }
 
-    pub fn set_active_instance(&mut self, idx: u32) {
-        self.active_instance_idx = idx.into();
+    pub fn set_active_buf(idx: u32) {
+        CONTAINER.active_buf.store(idx, atomic::Ordering::Relaxed);
     }
 
     pub async fn open_navigation(lua: &Lua, started_from: PathBuf) -> LuaResult<()> {
@@ -123,9 +116,7 @@ impl AppState {
         instances.insert(buf_id, instance);
         drop(instances);
 
-        CONTAINER
-            .active_instance_idx
-            .store(buf_id, atomic::Ordering::Relaxed);
+        Self::set_active_buf(buf_id);
 
         // Display in bar below
         NeoApi::set_cmd_file(lua, format!("Traveller ({buf_id})"))?;
@@ -144,7 +135,7 @@ impl AppState {
 
         let buf_wipeout_aucmd = AutoCmdOpts {
             buffer: Some(buf_id),
-            callback: lua.create_function(buf_wipeout_callback)?,
+            callback: lua.create_async_function(buf_wipeout_callback)?,
             pattern: vec![],
             group: None,
             desc: None,
@@ -305,25 +296,18 @@ impl AppInstance {
 }
 
 fn buf_enter_callback<'a>(_: &Lua, ev: AutoCmdCbEvent) -> LuaResult<()> {
-    //fn callback(lua: &Lua, app: &mut AppState, ev: AutoCmdCbEvent) {
-        //let instance = app.set_active_instance(ev.buf.unwrap());
-        //let _ = NeoApi::set_cwd(lua, &instance.cwd);
-    //}
-
-    //CB_QUEUE.push(Box::new(callback), ev)
+    AppState::set_active_buf(ev.buf.unwrap());
     Ok(())
 }
 
-// TODO
-fn buf_wipeout_callback(_: &Lua, ev: AutoCmdCbEvent) -> LuaResult<()> {
-    //fn callback(lua: &Lua, app: &mut AppState, ev: AutoCmdCbEvent) {
-        //let InstanceCtx { instance, theme } = app.active_instance();
-        //let _ = instance.close_selection_popup(lua);
+async fn buf_wipeout_callback(lua: &Lua, ev: AutoCmdCbEvent) -> LuaResult<()> {
+    let buf_id = ev.buf.unwrap();
+    let mut instances = CONTAINER.instances.write().await;
+    let instance = instances.get_mut(&buf_id).unwrap();
+    instance.close_selection_popup(lua).await?;
 
-        //app.instances.remove(&ev.buf.unwrap());
-    //}
-
-    //CB_QUEUE.push(Box::new(callback), ev)
+    let _ = instances.remove(&buf_id);
+    
     Ok(())
 }
 
@@ -346,7 +330,7 @@ fn copy_items_or_dir(lua: &Lua, source: PathBuf, target: PathBuf) -> LuaResult<(
 
 async fn copy_or_move_selection(lua: &Lua, copy: bool) -> LuaResult<()> {
     let mut instances = CONTAINER.instances.write().await;
-    let instance = instances.get_mut(&AppState::active_instance()).unwrap();
+    let instance = instances.get_mut(&AppState::active_buf()).unwrap();
 
     for paths in instance.selection.iter() {
         let cwd = paths.0;
@@ -391,7 +375,7 @@ async fn copy_selection(lua: &Lua, _: ()) -> LuaResult<()> {
 
 async fn delete_selection(lua: &Lua, _: ()) -> LuaResult<()> {
     let mut instances = CONTAINER.instances.write().await;
-    let instance = instances.get_mut(&AppState::active_instance()).unwrap();
+    let instance = instances.get_mut(&AppState::active_buf()).unwrap();
 
     for paths in instance.selection.iter() {
         let cwd = paths.0;
@@ -414,7 +398,7 @@ async fn delete_selection(lua: &Lua, _: ()) -> LuaResult<()> {
 
 async fn undo_selection(lua: &Lua, _: ()) -> LuaResult<()> {
     let mut instances = CONTAINER.instances.write().await;
-    let instance = instances.get_mut(&AppState::active_instance()).unwrap();
+    let instance = instances.get_mut(&AppState::active_buf()).unwrap();
 
     instance.selection = HashMap::new();
     instance.close_selection_popup(lua).await
@@ -422,7 +406,7 @@ async fn undo_selection(lua: &Lua, _: ()) -> LuaResult<()> {
 
 async fn toggle_hidden(lua: &Lua, _: ()) -> LuaResult<()> {
     let mut instances = CONTAINER.instances.write().await;
-    let instance = instances.get_mut(&AppState::active_instance()).unwrap();
+    let instance = instances.get_mut(&AppState::active_buf()).unwrap();
 
     instance.show_hidden = !instance.show_hidden;
     instance.set_buffer_content(lua).await
@@ -430,7 +414,7 @@ async fn toggle_hidden(lua: &Lua, _: ()) -> LuaResult<()> {
 
 async fn navigate_to_parent(lua: &Lua, _: ()) -> LuaResult<()> {
     let mut instances = CONTAINER.instances.write().await;
-    let instance = instances.get_mut(&AppState::active_instance()).unwrap();
+    let instance = instances.get_mut(&AppState::active_buf()).unwrap();
 
     if instance.cwd.parent().is_none() {
         return Ok(());
@@ -472,7 +456,7 @@ async fn open_item_in_hsplit(lua: &Lua, _: ()) -> LuaResult<()> {
 
 async fn open_item(lua: &Lua, open_in: OpenIn) -> LuaResult<()> {
     let mut instances = CONTAINER.instances.write().await;
-    let instance = instances.get_mut(&AppState::active_instance()).unwrap();
+    let instance = instances.get_mut(&AppState::active_buf()).unwrap();
 
     let cursor = NeoWindow::CURRENT.get_cursor(lua)?;
 
@@ -504,13 +488,15 @@ async fn open_item(lua: &Lua, open_in: OpenIn) -> LuaResult<()> {
 
 async fn close_navigation(lua: &Lua, _: ()) -> LuaResult<()> {
     let instances = CONTAINER.instances.read().await;
-    let instance = instances.get(&AppState::active_instance()).unwrap();
+    let instance = instances.get(&AppState::active_buf()).unwrap();
 
     let path = instance.started_from.clone();
 
     if let Some(git_root) = Utils::git_root(&instance.started_from) {
         NeoApi::set_cwd(lua, &git_root)?;
     }
+
+    drop(instances);
 
     NeoApi::open_file(lua, OpenIn::Buffer, path.to_str().unwrap())
 }

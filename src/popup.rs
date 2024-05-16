@@ -12,7 +12,7 @@ pub async fn delete_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
     let popup_buf = NeoBuffer::create(lua, false, true)?;
 
     let instances = CONTAINER.instances.read().await;
-    let instance = instances.get(&AppState::active_instance()).unwrap();
+    let instance = instances.get(&AppState::active_buf()).unwrap();
 
     let filename = instance.get_item(lua)?;
     let delete_info = format!("Delete: {filename}");
@@ -59,7 +59,7 @@ pub async fn delete_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
         }
 
         let mut instances = CONTAINER.instances.write().await;
-        let instance = instances.get_mut(&AppState::active_instance()).unwrap();
+        let instance = instances.get_mut(&AppState::active_buf()).unwrap();
         instance.set_buffer_content(lua).await?;
 
         let id: u32 = lua.named_registry_value("del_popup_nw")?;
@@ -76,7 +76,7 @@ pub async fn rename_item_popup(lua: &Lua, _: ()) -> LuaResult<()> {
     let popup_buf = NeoBuffer::create(lua, false, true)?;
 
     let instances = CONTAINER.instances.read().await;
-    let instance = instances.get(&AppState::active_instance()).unwrap();
+    let instance = instances.get(&AppState::active_buf()).unwrap();
 
     let filename = instance.get_item(lua)?;
     let filename_len = filename.len();
@@ -113,7 +113,7 @@ pub async fn rename_item_popup(lua: &Lua, _: ()) -> LuaResult<()> {
 
     let rename_item = lua.create_async_function(|lua, ()| async move {
         let mut instances = CONTAINER.instances.write().await;
-        let instance = instances.get_mut(&AppState::active_instance()).unwrap();
+        let instance = instances.get_mut(&AppState::active_buf()).unwrap();
         let source = instance.cwd.join(instance.get_item(lua)?);
 
         let line = NeoApi::get_current_line(lua)?;
@@ -164,7 +164,7 @@ pub async fn rename_item_popup(lua: &Lua, _: ()) -> LuaResult<()> {
 
 pub async fn select_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
     let mut instances = CONTAINER.instances.write().await;
-    let instance = instances.get_mut(&AppState::active_instance()).unwrap();
+    let instance = instances.get_mut(&AppState::active_buf()).unwrap();
 
     let item = instance.get_item(lua)?;
 
@@ -291,7 +291,7 @@ pub async fn create_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
 
         if quote_count % 2 == 0 {
             let mut instances = CONTAINER.instances.write().await;
-            let instance = instances.get_mut(&AppState::active_instance()).unwrap();
+            let instance = instances.get_mut(&AppState::active_buf()).unwrap();
 
             create_items(instance, items_cmd)?;
             instance.set_buffer_content(lua).await?;
