@@ -234,8 +234,9 @@ impl AppInstance {
 
         self.selection_popup = None;
 
-        // TODO maybe remove?
-        self.theme_nav_buffer(lua).await?;
+        if self.buf == NeoBuffer::get_current_buf(lua)? {
+            self.theme_nav_buffer(lua).await?;
+        }
 
         Ok(())
     }
@@ -302,12 +303,19 @@ fn buf_enter_callback<'a>(_: &Lua, ev: AutoCmdCbEvent) -> LuaResult<()> {
 
 async fn buf_wipeout_callback(lua: &Lua, ev: AutoCmdCbEvent) -> LuaResult<()> {
     let buf_id = ev.buf.unwrap();
-    let mut instances = CONTAINER.instances.write().await;
-    let instance = instances.get_mut(&buf_id).unwrap();
-    instance.close_selection_popup(lua).await?;
 
-    let _ = instances.remove(&buf_id);
-    
+    let defer_cb = lua.create_async_function(move |lua, ()| async move {
+        let mut instances = CONTAINER.instances.write().await;
+        let instance = instances.get_mut(&buf_id).unwrap();
+        instance.close_selection_popup(lua).await?;
+
+        let _ = instances.remove(&buf_id);
+
+        Ok(())
+    })?;
+
+    NeoApi::delay(lua, 64, defer_cb)?;
+
     Ok(())
 }
 
