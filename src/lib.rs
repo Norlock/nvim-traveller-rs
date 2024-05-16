@@ -6,8 +6,6 @@ use state::AppState;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::sync::Mutex;
-use std::sync::OnceLock;
 use theme::Theme;
 use utils::Utils;
 
@@ -16,28 +14,18 @@ mod state;
 mod theme;
 mod utils;
 
-static CONTAINER: Lazy<Mutex<AppState>> = Lazy::new(|| {
-    let app = AppState {
-        history_dir: PathBuf::new(),
-        theme: Theme::default(),
-        active_instance_idx: 0,
-        instances: HashMap::new(),
-    };
-
-    Mutex::new(app)
+static CONTAINER: Lazy<AppState> = Lazy::new(|| AppState {
+    history_dir: PathBuf::new().into(),
+    theme: Theme::default().into(),
+    active_instance_idx: 0.into(),
+    instances: HashMap::new().into(),
 });
-
-static CB_QUEUE: OnceLock<Mutex<CallBackQueue<AppState>>> = neo_api_rs::create_callback_container();
 
 #[mlua::lua_module]
 fn nvim_traveller_rs(lua: &Lua) -> LuaResult<LuaTable> {
-    CB_QUEUE.init();
-
     let module = lua.create_table()?;
 
-    let mut app = CONTAINER.lock().unwrap();
-
-    if let Err(err) = app.init(lua) {
+    if let Err(err) = AppState::init(lua) {
         NeoApi::notify(lua, &err)?;
     }
 
@@ -55,15 +43,13 @@ fn nvim_traveller_rs(lua: &Lua) -> LuaResult<LuaTable> {
 }
 
 async fn open_navigation(lua: &Lua, _: ()) -> LuaResult<()> {
-    let mut app = CONTAINER.lock().unwrap();
-
     let mut started_from = NeoApi::get_filepath(lua)?;
 
     if !started_from.is_file() {
         started_from = NeoApi::get_filedir(lua)?;
     }
 
-    if let Err(err) = app.open_navigation(&lua, started_from) {
+    if let Err(err) = AppState::open_navigation(&lua, started_from).await {
         NeoApi::notify(&lua, &err)?;
     }
 
@@ -82,11 +68,12 @@ impl FuzzyConfig for FuzzyVisitor {
     }
 
     fn on_enter(&self, lua: &Lua, selected: PathBuf) -> LuaResult<()> {
-        let mut app = CONTAINER.lock().unwrap();
+        //let mut app = CONTAINER.blocking_lock();
 
-        if let Err(err) = app.open_navigation(&lua, selected) {
-            NeoApi::notify(&lua, &err)?;
-        }
+
+        //if let Err(err) = app.open_navigation(&lua, selected) {
+            //NeoApi::notify(&lua, &err)?;
+        //}
 
         Ok(())
     }

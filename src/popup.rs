@@ -1,19 +1,19 @@
 use crate::{
-    state::{AppInstance, InstanceCtx},
+    state::{AppInstance, AppState},
     CONTAINER,
 };
 use neo_api_rs::{
-    mlua::{prelude::LuaResult, Lua},
+    mlua::prelude::{Lua, LuaResult},
     *,
 };
-use std::{fs, io, time::Duration};
+use std::{fs, io, path::PathBuf, time::Duration};
 
 pub async fn delete_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
     let popup_buf = NeoBuffer::create(lua, false, true)?;
 
-    let app = CONTAINER.fast_lock();
+    let instances = CONTAINER.instances.read().await;
+    let instance = instances.get(&AppState::active_instance()).unwrap();
 
-    let instance = app.active_instance_ref();
     let filename = instance.get_item(lua)?;
     let delete_info = format!("Delete: {filename}");
     let file_path = instance.cwd.join(filename);
@@ -45,17 +45,25 @@ pub async fn delete_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
 
     let close_popup = lua.create_function(move |lua: &Lua, _: ()| popup_win.close(lua, true))?;
 
-    let delete_item = lua.create_function(move |lua: &Lua, _: ()| {
+    lua.set_named_registry_value("del_popup_fp", file_path.to_string_lossy())?;
+    lua.set_named_registry_value("del_popup_nw", popup_win.id())?;
+
+    let delete_item = lua.create_async_function(|lua: &Lua, _: ()| async move {
+        let file_path: String = lua.named_registry_value("del_popup_fp")?;
+        let file_path: PathBuf = file_path.into();
+
         if file_path.is_file() {
-            let _ = fs::remove_file(&file_path);
+            let _ = fs::remove_file(&*file_path);
         } else if file_path.is_dir() {
-            let _ = fs::remove_dir_all(&file_path);
+            let _ = fs::remove_dir_all(&*file_path);
         }
 
-        let mut app = CONTAINER.fast_lock();
-        app.set_buffer_content(lua)?;
+        let mut instances = CONTAINER.instances.write().await;
+        let instance = instances.get_mut(&AppState::active_instance()).unwrap();
+        instance.set_buffer_content(lua).await?;
 
-        popup_win.close(lua, true)
+        let id: u32 = lua.named_registry_value("del_popup_nw")?;
+        NeoWindow::new(id).close(lua, false)
     })?;
 
     popup_buf.set_keymap(lua, Mode::Normal, "q", close_popup)?;
@@ -66,9 +74,9 @@ pub async fn delete_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
 
 pub async fn rename_item_popup(lua: &Lua, _: ()) -> LuaResult<()> {
     let popup_buf = NeoBuffer::create(lua, false, true)?;
-    let mut app = CONTAINER.fast_lock();
 
-    let InstanceCtx { instance, theme: _ } = app.active_instance();
+    let instances = CONTAINER.instances.read().await;
+    let instance = instances.get(&AppState::active_instance()).unwrap();
 
     let filename = instance.get_item(lua)?;
     let filename_len = filename.len();
@@ -103,19 +111,18 @@ pub async fn rename_item_popup(lua: &Lua, _: ()) -> LuaResult<()> {
 
     popup_win.set_cursor(lua, WinCursor::from_zero_indexed(0, cursor_col as u32))?;
 
-    let rename_item = lua.create_function(move |lua: &Lua, _: ()| {
-        let mut app = CONTAINER.fast_lock();
-        let InstanceCtx { instance, theme } = app.active_instance();
+    let rename_item = lua.create_async_function(|lua, ()| async move {
+        let mut instances = CONTAINER.instances.write().await;
+        let instance = instances.get_mut(&AppState::active_instance()).unwrap();
+        let source = instance.cwd.join(instance.get_item(lua)?);
 
         let line = NeoApi::get_current_line(lua)?;
-
-        let source = &source_path;
         let target = instance.cwd.join(line);
 
         // Disallow rename existing files
         if source.is_file() && !target.is_file() || source.is_dir() && !target.is_dir() {
             fs::rename(source, target)?;
-            instance.set_buffer_content(lua, theme)?;
+            instance.set_buffer_content(lua).await?;
             instance.buf.set_current(lua)
         } else {
             NeoPopup::notify(
@@ -156,9 +163,8 @@ pub async fn rename_item_popup(lua: &Lua, _: ()) -> LuaResult<()> {
 }
 
 pub async fn select_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
-    let mut app = CONTAINER.fast_lock();
-
-    let InstanceCtx { instance, theme } = app.active_instance();
+    let mut instances = CONTAINER.instances.write().await;
+    let instance = instances.get_mut(&AppState::active_instance()).unwrap();
 
     let item = instance.get_item(lua)?;
 
@@ -191,13 +197,13 @@ pub async fn select_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
     ];
 
     if count == 0 {
-        instance.close_selection_popup(lua, theme)?;
+        instance.close_selection_popup(lua).await?;
     } else if let Some(popup) = &instance.selection_popup {
         popup.buf.set_lines(lua, 0, -1, false, &lines)?;
-        instance.theme_nav_buffer(theme, lua)?;
+        instance.theme_nav_buffer(lua).await?;
     } else {
         let popup_buf = NeoBuffer::create(lua, false, true)?;
-        instance.theme_nav_buffer(theme, lua)?;
+        instance.theme_nav_buffer(lua).await?;
 
         popup_buf.set_lines(lua, 0, -1, false, &lines)?;
 
@@ -276,7 +282,7 @@ pub async fn create_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
 
     popup_buf.set_keymap(lua, Mode::Insert, "<Esc>", close_popup_event)?;
 
-    let confirm_selection = lua.create_function(move |lua: &Lua, _: ()| {
+    let confirm_selection = lua.create_async_function(move |lua: &Lua, _: ()| async move {
         let lines = popup_buf.get_lines(lua, 0, 1, false)?;
 
         let items_cmd = lines[0].to_string();
@@ -284,11 +290,11 @@ pub async fn create_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
         let quote_count = items_cmd.chars().filter(|c| *c == '"').count();
 
         if quote_count % 2 == 0 {
-            let mut app = CONTAINER.fast_lock();
-            let InstanceCtx { theme, instance } = app.active_instance();
+            let mut instances = CONTAINER.instances.write().await;
+            let instance = instances.get_mut(&AppState::active_instance()).unwrap();
 
             create_items(instance, items_cmd)?;
-            instance.set_buffer_content(lua, theme)?;
+            instance.set_buffer_content(lua).await?;
 
             // TODO feedback
             popup_win.close(lua, true)?;

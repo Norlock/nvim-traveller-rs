@@ -1,4 +1,5 @@
 use crate::state::AppInstance;
+use crate::CONTAINER;
 use neo_api_rs::mlua::prelude::*;
 use neo_api_rs::*;
 
@@ -33,7 +34,8 @@ impl Default for Theme {
 }
 
 impl AppInstance {
-    pub fn theme_nav_buffer(&mut self, theme: Theme, lua: &Lua) -> LuaResult<()> {
+    pub async fn theme_nav_buffer(&mut self, lua: &Lua) -> LuaResult<()> {
+        let theme = CONTAINER.theme.read().await;
         self.buf
             .clear_namespace(lua, theme.navigation_ns as i32, 0, -1)?;
 
