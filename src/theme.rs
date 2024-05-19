@@ -1,4 +1,7 @@
-use crate::state::AppInstance;
+use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
+
+use crate::state::{AppInstance, SelectionData};
 use crate::CONTAINER;
 use neo_api_rs::mlua::prelude::*;
 use neo_api_rs::*;
@@ -34,7 +37,7 @@ impl Default for Theme {
 }
 
 impl AppInstance {
-    pub async fn theme_nav_buffer(&mut self, lua: &Lua) -> LuaResult<()> {
+    pub async fn theme_nav_buffer(&mut self, lua: &Lua, selection: &SelectionData) -> LuaResult<()> {
         let theme = CONTAINER.theme.read().await;
         self.buf
             .clear_namespace(lua, theme.navigation_ns as i32, 0, -1)?;
@@ -69,7 +72,7 @@ impl AppInstance {
                     .add_highlight(lua, theme.navigation_ns as i32, "Directory", i, 0, -1)?;
             }
 
-            if self.is_selected(item_name) {
+            if self.is_selected(&selection, item_name) {
                 self.buf
                     .add_highlight(lua, theme.navigation_ns as i32, "Special", i, 0, -1)?;
             }
@@ -78,8 +81,8 @@ impl AppInstance {
         Ok(())
     }
 
-    fn is_selected(&self, item_name: &str) -> bool {
-        if let Some(cwd) = self.selection.get(&self.cwd) {
+    fn is_selected(&self, selection: &HashMap<PathBuf, HashSet<String>>,  item_name: &str) -> bool {
+        if let Some(cwd) = selection.get(&self.cwd) {
             cwd.contains(item_name)
         } else {
             false

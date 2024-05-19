@@ -18,6 +18,7 @@ static CONTAINER: Lazy<AppState> = Lazy::new(|| AppState {
     theme: Theme::default().into(),
     active_buf: 0.into(),
     instances: HashMap::new().into(),
+    selection: HashMap::new().into(),
 });
 
 #[mlua::lua_module]
@@ -73,14 +74,6 @@ impl FuzzyConfig for FuzzyVisitor {
             }
         })
     }
-
-    //async fn on_enter(&self, lua: &Lua, selected: PathBuf) -> Result<()> {
-    //if let Err(err) = AppState::open_navigation(&lua, selected).await {
-    //NeoApi::notify(&lua, &err);
-    //}
-
-    //Ok(())
-    //}
 }
 
 async fn directory_search(lua: &Lua, _: ()) -> LuaResult<()> {
