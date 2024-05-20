@@ -8,6 +8,12 @@ use neo_api_rs::{
 };
 use std::{fs, io, path::PathBuf, time::Duration};
 
+#[derive(Clone)]
+struct DeleteItemsCb {
+    file_path: PathBuf,
+    popup_win: NeoWindow,
+}
+
 pub async fn delete_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
     let popup_buf = NeoBuffer::create(lua, false, true)?;
 
@@ -45,12 +51,20 @@ pub async fn delete_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
 
     let close_popup = lua.create_function(move |lua: &Lua, _: ()| popup_win.close(lua, true))?;
 
-    lua.set_named_registry_value("del_popup_fp", file_path.to_string_lossy())?;
-    lua.set_named_registry_value("del_popup_nw", popup_win.id())?;
+    NeoBridge::insert_item(
+        "del_popup",
+        Box::new(DeleteItemsCb {
+            file_path,
+            popup_win,
+        }),
+    )
+    .await;
 
-    let delete_item = lua.create_async_function(|lua: &Lua, _: ()| async move {
-        let file_path: String = lua.named_registry_value("del_popup_fp")?;
-        let file_path: PathBuf = file_path.into();
+    let delete_item = lua.create_async_function(|lua: &Lua, ()| async move {
+        let DeleteItemsCb {
+            popup_win,
+            file_path,
+        } = NeoBridge::consume("del_popup").await?;
 
         if file_path.is_file() {
             let _ = fs::remove_file(&*file_path);
@@ -64,8 +78,7 @@ pub async fn delete_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
         let selection = CONTAINER.selection.read().await;
         instance.set_buffer_content(lua, &selection).await?;
 
-        let id: u32 = lua.named_registry_value("del_popup_nw")?;
-        NeoWindow::new(id).close(lua, false)
+        popup_win.close(lua, false)
     })?;
 
     popup_buf.set_keymap(lua, Mode::Normal, "q", close_popup)?;
@@ -87,6 +100,9 @@ pub async fn rename_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
     let filename = instance.get_item(lua)?;
     let filename_len = filename.len();
     let source_path = instance.cwd.join(filename);
+
+    NeoBridge::insert_item("rename_file_path", Box::new(source_path.clone())).await;
+
     let file_path = source_path.to_string_lossy().to_string();
     let file_path_len = file_path.len();
 
@@ -121,7 +137,7 @@ pub async fn rename_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
         let mut instances = CONTAINER.instances.write().await;
         let instance = instances.get_mut(&AppState::active_buf()).unwrap();
 
-        let source = instance.cwd.join(instance.get_item(lua)?);
+        let source: PathBuf = NeoBridge::consume("rename_file_path").await?;
         let line = NeoApi::get_current_line(lua)?;
         let target = instance.cwd.join(line);
 
@@ -171,7 +187,11 @@ pub async fn rename_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
     Ok(())
 }
 
-pub async fn show_selection_popup(lua: &Lua, selection: &SelectionData, instance: &mut AppInstance) -> LuaResult<()> {
+pub async fn show_selection_popup(
+    lua: &Lua,
+    selection: &SelectionData,
+    instance: &mut AppInstance,
+) -> LuaResult<()> {
     let count: usize = selection.iter().map(|sel| sel.1.len()).sum();
 
     let lines = [
@@ -273,9 +293,16 @@ pub async fn create_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
 
     NeoApi::set_insert_mode(lua, true)?;
 
-    let close_popup_event = lua.create_function(move |lua: &Lua, _: ()| {
-        popup_win.close(lua, true)?;
-        NeoApi::set_insert_mode(lua, false)
+    let popup_leave_event = lua.create_function(move |lua: &Lua, _: ()| {
+        let cb = lua.create_function(move |lua: &Lua, ()| {
+            if NeoWindow::get_current_win(lua)? == popup_win {
+                popup_win.close(lua, false)?;
+            }
+
+            NeoApi::set_insert_mode(lua, false)
+        })?;
+
+        NeoApi::delay(lua, 64, cb)
     })?;
 
     NeoApi::create_autocmd(
@@ -283,7 +310,7 @@ pub async fn create_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
         &[AutoCmdEvent::BufLeave],
         AutoCmdOpts {
             buffer: Some(popup_buf.id()),
-            callback: close_popup_event.clone(),
+            callback: popup_leave_event.clone(),
             desc: None,
             group: None,
             pattern: vec![],
@@ -291,7 +318,7 @@ pub async fn create_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
         },
     )?;
 
-    popup_buf.set_keymap(lua, Mode::Insert, "<Esc>", close_popup_event)?;
+    popup_buf.set_keymap(lua, Mode::Insert, "<Esc>", popup_leave_event)?;
 
     let confirm_selection = lua.create_async_function(move |lua: &Lua, _: ()| async move {
         let lines = popup_buf.get_lines(lua, 0, 1, false)?;
@@ -310,7 +337,7 @@ pub async fn create_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
             instance.set_buffer_content(lua, &selection).await?;
 
             // TODO feedback
-            popup_win.close(lua, true)?;
+            popup_win.close(lua, false)?;
         }
 
         Ok(())

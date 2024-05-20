@@ -36,7 +36,6 @@ pub struct AppState {
 }
 
 pub type SelectionData = HashMap<PathBuf, HashSet<String>>;
-pub type InstanceData = HashMap<u32, AppInstance>;
 
 #[derive(Debug)]
 pub struct AppInstance {
@@ -234,7 +233,11 @@ impl AppInstance {
         Ok(())
     }
 
-    pub async fn close_selection_popup(&mut self, lua: &Lua, selection: &SelectionData) -> LuaResult<()> {
+    pub async fn close_selection_popup(
+        &mut self,
+        lua: &Lua,
+        selection: &SelectionData,
+    ) -> LuaResult<()> {
         if let Some(popup) = &self.selection_popup {
             popup.win.close(lua, false)?;
         }
@@ -253,7 +256,11 @@ impl AppInstance {
         Ok(self.buf_content[cursor.row_zero_indexed() as usize].clone())
     }
 
-    pub async fn set_buffer_content<'a>(&'a mut self, lua: &Lua, selection: &SelectionData) -> LuaResult<()> {
+    pub async fn set_buffer_content<'a>(
+        &'a mut self,
+        lua: &Lua,
+        selection: &SelectionData,
+    ) -> LuaResult<()> {
         NeoApi::set_cwd(lua, &self.cwd)?;
 
         self.buf.set_option_value(lua, "modifiable", true)?;
@@ -305,12 +312,16 @@ impl AppInstance {
 async fn buf_enter_callback<'a>(lua: &Lua, ev: AutoCmdCbEvent) -> LuaResult<()> {
     AppState::set_active_buf(ev.buf.unwrap())?;
 
-    let mut instances = CONTAINER.instances.write().await;
-    let instance = instances.get_mut(&AppState::active_buf()).unwrap();
+    let cb = lua.create_async_function(|lua, ()| async {
+        let mut instances = CONTAINER.instances.write().await;
+        let instance = instances.get_mut(&AppState::active_buf()).unwrap();
 
-    let selection = CONTAINER.selection.read().await;
+        let selection = CONTAINER.selection.read().await;
 
-    show_selection_popup(lua, &selection, instance).await
+        show_selection_popup(lua, &selection, instance).await
+    })?;
+
+    NeoApi::delay(lua, 32, cb)
 }
 
 async fn buf_wipeout_callback(lua: &Lua, ev: AutoCmdCbEvent) -> LuaResult<()> {
