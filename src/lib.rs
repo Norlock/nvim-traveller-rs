@@ -73,17 +73,22 @@ impl FuzzyConfig for TravellerFuzzy {
     }
 
     fn on_enter(&self, lua: &Lua, selected: PathBuf) {
-        RTM.block_on(async move {
-            if let Err(err) = AppState::open_navigation(&lua, selected).await {
-                let _ = NeoApi::notify(&lua, &err);
+        match self.0 {
+            FilesSearch::DirOnly => RTM.block_on(async move {
+                if let Err(err) = AppState::open_navigation(&lua, selected).await {
+                    let _ = NeoApi::notify(&lua, &err);
+                }
+            }),
+            FilesSearch::FileOnly => {
+                let _ = NeoApi::open_file(lua, OpenIn::Buffer, selected.to_str().unwrap());
             }
-        })
+        }
     }
 }
 
 async fn directory_search(lua: &Lua, _: ()) -> LuaResult<()> {
     let config = TravellerFuzzy(FilesSearch::DirOnly);
-    if let Err(err) = NeoFuzzy::files(lua, Box::new(config)).await {
+    if let Err(err) = NeoFuzzy::files_or_directories(lua, Box::new(config)).await {
         NeoApi::notify(&lua, &err)?;
     }
 
@@ -92,7 +97,7 @@ async fn directory_search(lua: &Lua, _: ()) -> LuaResult<()> {
 
 async fn file_search(lua: &Lua, _: ()) -> LuaResult<()> {
     let config = TravellerFuzzy(FilesSearch::FileOnly);
-    if let Err(err) = NeoFuzzy::files(lua, Box::new(config)).await {
+    if let Err(err) = NeoFuzzy::files_or_directories(lua, Box::new(config)).await {
         NeoApi::notify(&lua, &err)?;
     }
 

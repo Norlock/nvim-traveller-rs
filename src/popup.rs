@@ -51,7 +51,7 @@ pub async fn delete_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
 
     let close_popup = lua.create_function(move |lua: &Lua, _: ()| popup_win.close(lua, true))?;
 
-    NeoBridge::insert_item(
+    NeoBridge::insert(
         "del_popup",
         Box::new(DeleteItemsCb {
             file_path,
@@ -101,7 +101,7 @@ pub async fn rename_items_popup(lua: &Lua, _: ()) -> LuaResult<()> {
     let filename_len = filename.len();
     let source_path = instance.cwd.join(filename);
 
-    NeoBridge::insert_item("rename_file_path", Box::new(source_path.clone())).await;
+    NeoBridge::insert("rename_file_path", Box::new(source_path.clone())).await;
 
     let file_path = source_path.to_string_lossy().to_string();
     let file_path_len = file_path.len();
@@ -364,7 +364,6 @@ fn split_items(mut items_cmd: String) -> Vec<String> {
                 let end_quote = start_quote + SKIP_OFFSET + end_quote;
                 items.push(items_cmd[start_quote + SKIP_OFFSET..end_quote].to_string());
                 items_cmd.replace_range(start_quote..=end_quote, "");
-
                 continue;
             }
         }
