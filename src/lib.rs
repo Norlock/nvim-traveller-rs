@@ -51,8 +51,8 @@ async fn open_navigation(lua: &Lua, _: ()) -> LuaResult<()> {
         started_from = started_from.parent().unwrap().to_path_buf();
     }
 
-    if let Err(err) = AppState::open_navigation(&lua, started_from).await {
-        NeoApi::notify(&lua, &err)?;
+    if let Err(err) = AppState::open_navigation(lua, started_from).await {
+        NeoApi::notify(lua, &err)?;
     }
 
     Ok(())
@@ -68,19 +68,19 @@ impl FuzzyConfig for TravellerFuzzy {
         }
     }
 
-    fn search_type(&self) -> &FuzzySearch {
-        &self.0
+    fn search_type(&self) -> FuzzySearch {
+        self.0
     }
 
-    fn on_enter(&self, lua: &Lua, selected: PathBuf) {
+    fn on_enter(&self, lua: &Lua, open_in: OpenIn, selected: PathBuf) {
         match self.0 {
             FuzzySearch::DirOnly => RTM.block_on(async move {
-                if let Err(err) = AppState::open_navigation(&lua, selected).await {
-                    let _ = NeoApi::notify(&lua, &err);
+                if let Err(err) = AppState::open_navigation(lua, selected).await {
+                    let _ = NeoApi::notify(lua, &err);
                 }
             }),
             FuzzySearch::FileOnly => {
-                let _ = NeoApi::open_file(lua, OpenIn::Buffer, selected.to_str().unwrap());
+                let _ = NeoApi::open_file(lua, open_in, selected.to_str().unwrap());
             }
         }
     }
@@ -89,7 +89,7 @@ impl FuzzyConfig for TravellerFuzzy {
 async fn directory_search(lua: &Lua, _: ()) -> LuaResult<()> {
     let config = TravellerFuzzy(FuzzySearch::DirOnly);
     if let Err(err) = NeoFuzzy::files_or_directories(lua, Box::new(config)).await {
-        NeoApi::notify(&lua, &err)?;
+        NeoApi::notify(lua, &err)?;
     }
 
     Ok(())
@@ -98,7 +98,7 @@ async fn directory_search(lua: &Lua, _: ()) -> LuaResult<()> {
 async fn file_search(lua: &Lua, _: ()) -> LuaResult<()> {
     let config = TravellerFuzzy(FuzzySearch::FileOnly);
     if let Err(err) = NeoFuzzy::files_or_directories(lua, Box::new(config)).await {
-        NeoApi::notify(&lua, &err)?;
+        NeoApi::notify(lua, &err)?;
     }
 
     Ok(())

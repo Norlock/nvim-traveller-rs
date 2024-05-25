@@ -159,40 +159,22 @@ impl AppInstance {
         let km_opts = self.buf.keymap_opts(true);
 
         let close_nav = lua.create_async_function(close_navigation)?;
-        NeoApi::set_keymap(lua, Mode::Normal, "q", close_nav, km_opts.clone())?;
+        NeoApi::set_keymap(lua, Mode::Normal, "q", close_nav, km_opts)?;
 
         let nav_to_parent = lua.create_async_function(navigate_to_parent)?;
-        NeoApi::set_keymap(
-            lua,
-            Mode::Normal,
-            "h",
-            nav_to_parent.clone(),
-            km_opts.clone(),
-        )?;
-        NeoApi::set_keymap(lua, Mode::Normal, "<Left>", nav_to_parent, km_opts.clone())?;
+        NeoApi::set_keymap(lua, Mode::Normal, "h", nav_to_parent.clone(), km_opts)?;
+        NeoApi::set_keymap(lua, Mode::Normal, "<Left>", nav_to_parent, km_opts)?;
 
         let open_item_in_buffer = lua.create_async_function(open_item_in_buffer)?;
-        NeoApi::set_keymap(
-            lua,
-            Mode::Normal,
-            "l",
-            open_item_in_buffer.clone(),
-            km_opts.clone(),
-        )?;
+        NeoApi::set_keymap(lua, Mode::Normal, "l", open_item_in_buffer.clone(), km_opts)?;
         NeoApi::set_keymap(
             lua,
             Mode::Normal,
             "<Cr>",
             open_item_in_buffer.clone(),
-            km_opts.clone(),
+            km_opts,
         )?;
-        NeoApi::set_keymap(
-            lua,
-            Mode::Normal,
-            "<Right>",
-            open_item_in_buffer,
-            km_opts.clone(),
-        )?;
+        NeoApi::set_keymap(lua, Mode::Normal, "<Right>", open_item_in_buffer, km_opts)?;
 
         let open_in_tab = lua.create_async_function(open_item_in_tab)?;
         NeoApi::set_keymap(lua, Mode::Normal, "t", open_in_tab, km_opts)?;
@@ -275,27 +257,25 @@ impl AppInstance {
     }
 
     fn set_nav_cursor(&mut self, lua: &Lua) -> LuaResult<()> {
-        if let Some(location) = self.history.iter().find(|loc| &loc.dir_path == &self.cwd) {
+        if let Some(location) = self.history.iter().find(|loc| loc.dir_path == self.cwd) {
             for (row, item) in self.buf_content.iter().enumerate() {
                 if &location.item == item {
                     let cursor = WinCursor::from_zero_indexed(row as u32, 0);
-                    return self.win.set_cursor(lua, cursor.clone());
+                    return self.win.set_cursor(lua, cursor);
                 }
             }
         }
 
         if !self.buf_content.is_empty() {
             let cursor = WinCursor::from_zero_indexed(0, 0);
-            self.win.set_cursor(lua, cursor.clone())?;
+            self.win.set_cursor(lua, cursor)?;
         }
 
         Ok(())
     }
 
-    fn get_location<'a>(&'a mut self) -> Option<&'a mut Location> {
-        self.history
-            .iter_mut()
-            .find(|his| &his.dir_path == &self.cwd)
+    fn get_location(&mut self) -> Option<&mut Location> {
+        self.history.iter_mut().find(|his| his.dir_path == self.cwd)
     }
 
     fn update_history(&mut self, item: String) {
@@ -513,8 +493,8 @@ async fn open_item(lua: &Lua, open_in: OpenIn) -> LuaResult<()> {
 
     let item = item.unwrap();
 
-    if item.ends_with("/") {
-        instance.cwd.push(item.to_string());
+    if item.ends_with('/') {
+        instance.cwd.push(&item);
         let selection = CONTAINER.selection.read().await;
         instance.set_buffer_content(lua, &selection).await?;
     } else {
@@ -552,10 +532,10 @@ fn nav_buffer_lines(path: &PathBuf, show_hidden: bool) -> LuaResult<Vec<String>>
             let hidden_file = path
                 .file_name()
                 .to_str()
-                .map(|file| file.starts_with("."))
+                .map(|file| file.starts_with('.'))
                 .unwrap_or(false);
 
-            (hidden_file && show_hidden) || !hidden_file
+            !hidden_file || show_hidden
         })
         .collect();
 

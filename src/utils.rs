@@ -1,9 +1,12 @@
-use std::{path::PathBuf, process::Command};
+use std::{
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 pub struct Utils;
 
 impl Utils {
-    pub fn git_root(path: &PathBuf) -> Option<PathBuf> {
+    pub fn git_root(path: &Path) -> Option<PathBuf> {
         let dir_path = if path.is_file() {
             path.parent()?.to_string_lossy()
         } else {
@@ -26,13 +29,13 @@ impl Utils {
     }
 
     pub fn home_directory() -> PathBuf {
-         std::env::var_os("HOME").unwrap().into()
+        std::env::var_os("HOME").unwrap().into()
     }
 
     fn strip_trailing_newline(input: &str) -> &str {
         input
             .strip_suffix("\r\n")
-            .or(input.strip_suffix("\n"))
+            .or(input.strip_suffix('\n'))
             .unwrap_or(input)
     }
 }

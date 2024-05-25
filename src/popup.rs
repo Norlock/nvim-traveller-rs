@@ -371,7 +371,7 @@ fn split_items(mut items_cmd: String) -> Vec<String> {
         break;
     }
 
-    for item in items_cmd.split(" ") {
+    for item in items_cmd.split(' ') {
         if !item.is_empty() {
             items.push(item.to_string());
         }
@@ -386,7 +386,7 @@ fn create_items(instance: &AppInstance, items_cmd: String) -> io::Result<()> {
     for item in items.iter() {
         let path = instance.cwd.join(item);
 
-        if item.ends_with("/") {
+        if item.ends_with('/') {
             if path.is_dir() {
                 continue;
             }
