@@ -63,7 +63,7 @@ pub struct TravellerFuzzy(FuzzySearch);
 impl FuzzyConfig for TravellerFuzzy {
     fn cwd(&self, lua: &Lua) -> PathBuf {
         match self.0 {
-            FuzzySearch::File=> NeoApi::get_cwd(lua).unwrap(),
+            FuzzySearch::File => NeoApi::get_cwd(lua).unwrap(),
             _ => Utils::home_directory(),
         }
     }
@@ -79,7 +79,7 @@ impl FuzzyConfig for TravellerFuzzy {
                     let _ = NeoApi::notify(lua, &err);
                 }
             }),
-            FuzzySearch::File=> {
+            FuzzySearch::File => {
                 let _ = NeoApi::open_file(lua, open_in, selected.to_str().unwrap());
             }
         }
