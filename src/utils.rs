@@ -3,9 +3,9 @@ use std::{
     process::Command,
 };
 
-pub struct Utils;
+pub struct NeoUtils;
 
-impl Utils {
+impl NeoUtils {
     pub fn git_root(path: &Path) -> Option<PathBuf> {
         let dir_path = if path.is_file() {
             path.parent()?.to_string_lossy()

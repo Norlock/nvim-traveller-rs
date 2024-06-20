@@ -1,6 +1,6 @@
 use crate::popup::{rename_items_popup, show_selection_popup, update_selection_popup};
 use crate::theme::Theme;
-use crate::utils::Utils;
+use crate::utils::NeoUtils;
 use crate::{popup, CONTAINER};
 use neo_api_rs::mlua::prelude::*;
 use neo_api_rs::*;
@@ -500,7 +500,7 @@ async fn open_item(lua: &Lua, open_in: OpenIn) -> LuaResult<()> {
     } else {
         NeoApi::open_file(lua, open_in, &item)?;
 
-        if let Some(git_root) = Utils::git_root(&instance.cwd) {
+        if let Some(git_root) = NeoUtils::git_root(&instance.cwd) {
             NeoApi::set_cwd(lua, &git_root)?;
         }
     }
@@ -514,7 +514,7 @@ async fn close_navigation(lua: &Lua, _: ()) -> LuaResult<()> {
 
     let path = instance.started_from.clone();
 
-    if let Some(git_root) = Utils::git_root(&instance.started_from) {
+    if let Some(git_root) = NeoUtils::git_root(&instance.started_from) {
         NeoApi::set_cwd(lua, &git_root)?;
     }
 
