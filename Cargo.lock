@@ -31,15 +31,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "aho-corasick"
-version = "1.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e60d3430d3a69478ad0993f19238d2df97c507009a52b3c10addcd7f6bcb916"
-dependencies = [
- "memchr",
-]
-
-[[package]]
 name = "allocator-api2"
 version = "0.2.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -731,6 +722,7 @@ checksum = "90ed8c1e510134f979dbc4f070f87d4313098b704861a105fe34231c70a3901c"
 [[package]]
 name = "macros"
 version = "0.1.0"
+source = "git+https://github.com/norlock/neo-api-rs#22a7553f6d2fdcc7da5d5b1207f604bf46bff68c"
 dependencies = [
  "convert_case",
  "proc-macro2",
@@ -817,6 +809,7 @@ dependencies = [
 [[package]]
 name = "neo-api-rs"
 version = "0.1.0"
+source = "git+https://github.com/norlock/neo-api-rs#22a7553f6d2fdcc7da5d5b1207f604bf46bff68c"
 dependencies = [
  "async-trait",
  "futures",
@@ -900,7 +893,6 @@ version = "0.1.0"
 dependencies = [
  "neo-api-rs",
  "once_cell",
- "regex",
 ]
 
 [[package]]
@@ -1072,35 +1064,6 @@ checksum = "469052894dcb553421e483e4209ee581a45100d31b4018de03e5a7ad86374a7e"
 dependencies = [
  "bitflags 2.5.0",
 ]
-
-[[package]]
-name = "regex"
-version = "1.10.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c117dbdfde9c8308975b6a18d71f3f385c89461f7b3fb054288ecf2a2058ba4c"
-dependencies = [
- "aho-corasick",
- "memchr",
- "regex-automata",
- "regex-syntax",
-]
-
-[[package]]
-name = "regex-automata"
-version = "0.4.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86b83b8b9847f9bf95ef68afb0b8e6cdb80f498442f5179a29fad448fcc1eaea"
-dependencies = [
- "aho-corasick",
- "memchr",
- "regex-syntax",
-]
-
-[[package]]
-name = "regex-syntax"
-version = "0.8.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "adad44e29e4c806119491a7f06f03de4d1af22c3a680dd47f1e6e179439d1f56"
 
 [[package]]
 name = "rsa"
