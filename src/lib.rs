@@ -1,17 +1,19 @@
+use fuzzy_config::TravellerFuzzy;
 use neo_api_rs::mlua;
 use neo_api_rs::mlua::prelude::*;
 use neo_api_rs::*;
 use once_cell::sync::Lazy;
 use state::AppState;
+use utils::NeoUtils;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use theme::Theme;
-use utils::NeoUtils;
 
 mod popup;
 mod state;
 mod theme;
 mod utils;
+mod fuzzy_config;
 
 static CONTAINER: Lazy<AppState> = Lazy::new(|| AppState {
     history_dir: PathBuf::new().into(),
@@ -62,47 +64,10 @@ async fn open_navigation(lua: &Lua, _: ()) -> LuaResult<()> {
     Ok(())
 }
 
-pub struct TravellerFuzzy(FuzzySearch);
-
-impl FuzzyConfig for TravellerFuzzy {
-    fn cwd(&self, lua: &Lua) -> PathBuf {
-        match self.0 {
-            FuzzySearch::Files => NeoApi::get_cwd(lua).unwrap(),
-            FuzzySearch::GitFiles => {
-                let cwd = NeoApi::get_cwd(lua).unwrap();
-                if let Some(git_root) = NeoUtils::git_root(&cwd) {
-                    git_root
-                } else {
-                    cwd
-                }
-            }
-            _ => NeoUtils::home_directory(),
-        }
-    }
-
-    fn search_type(&self) -> FuzzySearch {
-        self.0
-    }
-
-    fn on_enter(&self, lua: &Lua, open_in: OpenIn, selected: PathBuf) {
-        match self.0 {
-            FuzzySearch::Directories => RTM.block_on(async move {
-                if let Err(err) = AppState::open_navigation(lua, selected).await {
-                    let _ = NeoApi::notify(lua, &err);
-                }
-            }),
-            FuzzySearch::Files | FuzzySearch::GitFiles => {
-                let _ = NeoApi::open_file(lua, open_in, selected.to_str().unwrap());
-            }
-            _ => {
-                //
-            }
-        }
-    }
-}
-
 async fn directory_search(lua: &Lua, _: ()) -> LuaResult<()> {
-    let config = TravellerFuzzy(FuzzySearch::Directories);
+    let home = NeoUtils::home_directory();
+    let config = TravellerFuzzy::new(home, FuzzySearch::Directories);
+
     if let Err(err) = NeoFuzzy::files_or_directories(lua, Box::new(config)).await {
         NeoApi::notify(lua, &err)?;
     }
@@ -111,7 +76,9 @@ async fn directory_search(lua: &Lua, _: ()) -> LuaResult<()> {
 }
 
 async fn file_search(lua: &Lua, _: ()) -> LuaResult<()> {
-    let config = TravellerFuzzy(FuzzySearch::Files);
+    let cwd = NeoApi::get_cwd(lua).unwrap();
+    let config = TravellerFuzzy::new(cwd, FuzzySearch::Files);
+
     if let Err(err) = NeoFuzzy::files_or_directories(lua, Box::new(config)).await {
         NeoApi::notify(lua, &err)?;
     }
@@ -120,7 +87,16 @@ async fn file_search(lua: &Lua, _: ()) -> LuaResult<()> {
 }
 
 async fn git_file_search(lua: &Lua, _: ()) -> LuaResult<()> {
-    let config = TravellerFuzzy(FuzzySearch::GitFiles);
+    let cwd = NeoApi::get_cwd(lua).unwrap();
+
+    let cwd = if let Some(git_root) = NeoUtils::git_root(&cwd) {
+        git_root
+    } else {
+        cwd
+    };
+
+    let config = TravellerFuzzy::new(cwd, FuzzySearch::GitFiles);
+
     if let Err(err) = NeoFuzzy::files_or_directories(lua, Box::new(config)).await {
         NeoApi::notify(lua, &err)?;
     }
