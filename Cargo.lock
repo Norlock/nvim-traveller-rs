@@ -722,7 +722,6 @@ checksum = "90ed8c1e510134f979dbc4f070f87d4313098b704861a105fe34231c70a3901c"
 [[package]]
 name = "macros"
 version = "0.1.0"
-source = "git+https://github.com/norlock/neo-api-rs#22a7553f6d2fdcc7da5d5b1207f604bf46bff68c"
 dependencies = [
  "convert_case",
  "proc-macro2",
@@ -809,7 +808,6 @@ dependencies = [
 [[package]]
 name = "neo-api-rs"
 version = "0.1.0"
-source = "git+https://github.com/norlock/neo-api-rs#22a7553f6d2fdcc7da5d5b1207f604bf46bff68c"
 dependencies = [
  "async-trait",
  "futures",

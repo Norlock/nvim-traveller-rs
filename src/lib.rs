@@ -94,6 +94,9 @@ impl FuzzyConfig for TravellerFuzzy {
             FuzzySearch::Files | FuzzySearch::GitFiles => {
                 let _ = NeoApi::open_file(lua, open_in, selected.to_str().unwrap());
             }
+            _ => {
+                //
+            }
         }
     }
 }
