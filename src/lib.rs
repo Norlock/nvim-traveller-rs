@@ -44,8 +44,8 @@ fn nvim_traveller_rs(lua: &Lua) -> LuaResult<LuaTable> {
     )?;
 
     module.set("file_search", lua.create_async_function(file_search)?)?;
-
     module.set("git_file_search", lua.create_async_function(git_file_search)?)?;
+    module.set("buffer_search", lua.create_async_function(buffer_search)?)?;
 
     Ok(module)
 }
@@ -76,8 +76,19 @@ async fn directory_search(lua: &Lua, _: ()) -> LuaResult<()> {
 }
 
 async fn file_search(lua: &Lua, _: ()) -> LuaResult<()> {
-    let cwd = NeoApi::get_cwd(lua).unwrap();
+    let cwd = NeoApi::get_cwd(lua)?;
     let config = TravellerFuzzy::new(cwd, FuzzySearch::Files);
+
+    if let Err(err) = NeoFuzzy::files_or_directories(lua, Box::new(config)).await {
+        NeoApi::notify(lua, &err)?;
+    }
+
+    Ok(())
+}
+
+async fn buffer_search(lua: &Lua, _: ()) -> LuaResult<()> {
+    let cwd = NeoApi::get_cwd(lua)?;
+    let config = TravellerFuzzy::new(cwd, FuzzySearch::Buffer);
 
     if let Err(err) = NeoFuzzy::files_or_directories(lua, Box::new(config)).await {
         NeoApi::notify(lua, &err)?;

@@ -1,6 +1,6 @@
 use neo_api_rs::{
-    mlua::Lua, DummyTask, ExecPreview, ExecStandardSearch, ExecuteTask, FuzzyConfig, FuzzySearch,
-    NeoApi, OpenIn, RTM,
+    mlua::Lua, BufInfoOpts, BufferSearch, ExecPreview, ExecStandardSearch, ExecuteTask,
+    FuzzyConfig, FuzzySearch, NeoApi, OpenIn, RTM,
 };
 use std::path::PathBuf;
 
@@ -43,8 +43,8 @@ impl FuzzyConfig for TravellerFuzzy {
         }
     }
 
-    fn search_task(&self, search_query: &str) -> Box<dyn ExecuteTask> {
-        let create_standard_tasks = |args: Vec<String>| -> Box<dyn ExecuteTask> {
+    fn search_task(&self, lua: &Lua, search_query: &str) -> Box<dyn ExecuteTask> {
+        let create_standard_tasks = |args: Vec<&'static str>| -> Box<dyn ExecuteTask> {
             Box::new(ExecStandardSearch {
                 search_query: search_query.into(),
                 cwd: self.cwd(),
@@ -55,18 +55,26 @@ impl FuzzyConfig for TravellerFuzzy {
 
         match self.search_type {
             FuzzySearch::Files | FuzzySearch::GitFiles => {
-                let args = vec!["--type".to_string(), "file".to_string()];
+                let args = vec!["--type", "file"];
                 create_standard_tasks(args)
             }
             FuzzySearch::Directories => {
-                let args = vec!["--type".to_string(), "directory".to_string()];
+                let args = vec!["--type", "directory"];
                 create_standard_tasks(args)
             }
-            FuzzySearch::Buffer => Box::new(DummyTask),
+            FuzzySearch::Buffer => {
+                let buf_infos = NeoApi::get_buf_info(lua, BufInfoOpts::BufListed)
+                    .expect("Buf info not working");
+
+                Box::new(BufferSearch {
+                    cwd: self.cwd(),
+                    buf_infos,
+                })
+            }
         }
     }
 
-    fn preview_task(&self, selected_idx: usize) -> Box<dyn ExecuteTask> {
+    fn preview_task(&self, _lua: &Lua, selected_idx: usize) -> Box<dyn ExecuteTask> {
         Box::new(ExecPreview {
             cwd: self.cwd(),
             selected_idx,
