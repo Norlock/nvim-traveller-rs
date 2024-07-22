@@ -1,6 +1,6 @@
 use neo_api_rs::{
     mlua::Lua, BufInfoOpts, BufferSearch, ExecPreview, ExecRecentDirectories, ExecStandardSearch,
-    ExecuteTask, FuzzyConfig, FuzzySearch, NeoApi, OpenIn, StdpathType, RTM,
+    ExecuteTask, FuzzyConfig, FuzzySearch, NeoApi, OpenIn, RTM,
 };
 use std::path::PathBuf;
 
@@ -40,13 +40,13 @@ impl FuzzyConfig for TravellerFuzzy {
         }
     }
 
-    fn search_task(&self, lua: &Lua, search_query: &str, tab_idx: usize) -> Box<dyn ExecuteTask> {
+    fn search_task(&self, lua: &Lua, search_query: String, tab_idx: usize) -> Box<dyn ExecuteTask> {
         match self.search_type {
             FuzzySearch::Files | FuzzySearch::GitFiles => {
                 let args = vec!["--type", "file"];
 
                 Box::new(ExecStandardSearch {
-                    search_query: search_query.into(),
+                    search_query,
                     cwd: self.cwd(),
                     args,
                     search_type: self.search_type,
@@ -55,16 +55,15 @@ impl FuzzyConfig for TravellerFuzzy {
             FuzzySearch::Directories => {
                 let args = vec!["--type", "directory"];
 
-                //NeoApi::notify(lua, format!(""))
                 if tab_idx == 0 {
                     Box::new(ExecStandardSearch {
-                        search_query: search_query.into(),
+                        search_query,
                         cwd: self.cwd(),
                         args,
                         search_type: self.search_type,
                     })
                 } else {
-                    Box::new(ExecRecentDirectories::new(lua).unwrap())
+                    Box::new(ExecRecentDirectories::new(lua, search_query).unwrap())
                 }
             }
             FuzzySearch::Buffer => {
