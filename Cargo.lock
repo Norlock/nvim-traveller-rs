@@ -813,7 +813,6 @@ dependencies = [
  "futures",
  "macros",
  "mlua",
- "once_cell",
  "sqlx",
  "tokio",
 ]
