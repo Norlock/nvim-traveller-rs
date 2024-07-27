@@ -42,16 +42,26 @@ impl FuzzyConfig for TravellerFuzzy {
 
     fn search_task(&self, lua: &Lua, search_query: String, tab_idx: usize) -> Box<dyn ExecuteTask> {
         match self.search_type {
-            FuzzySearch::Files | FuzzySearch::GitFiles => Box::new(ExecStandardSearch {
+            FuzzySearch::Files => Box::new(ExecStandardSearch {
+                cmd: "fd",
                 search_query,
                 cwd: self.cwd(),
                 args: vec!["--type", "file"],
 
                 search_type: self.search_type,
             }),
+            FuzzySearch::GitFiles => Box::new(ExecStandardSearch {
+                cmd: "git",
+                search_query,
+                cwd: self.cwd(),
+                args: vec!["ls-files"],
+
+                search_type: self.search_type,
+            }),
             FuzzySearch::Directories => {
                 if tab_idx == 0 {
                     Box::new(ExecStandardSearch {
+                        cmd: "fd",
                         search_query,
                         cwd: self.cwd(),
                         args: vec!["--type", "directory"],
