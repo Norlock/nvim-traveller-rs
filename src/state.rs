@@ -28,7 +28,6 @@ impl Location {
 
 #[derive(Debug)]
 pub struct AppState {
-    pub history_dir: RwLock<PathBuf>,
     pub theme: RwLock<Theme>,
     pub active_buf: AtomicU32,
     pub instances: RwLock<HashMap<u32, AppInstance>>,

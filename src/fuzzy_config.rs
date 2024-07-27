@@ -54,8 +54,7 @@ impl FuzzyConfig for TravellerFuzzy {
                 cmd: "git",
                 search_query,
                 cwd: self.cwd(),
-                args: vec!["ls-files"],
-
+                args: vec!["ls-files", "--cached", "--others", "--exclude-standard"],
                 search_type: self.search_type,
             }),
             FuzzySearch::Directories => {

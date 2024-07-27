@@ -6,7 +6,6 @@ use once_cell::sync::Lazy;
 use state::AppState;
 use utils::NeoUtils;
 use std::collections::HashMap;
-use std::path::PathBuf;
 use theme::Theme;
 
 mod popup;
@@ -16,7 +15,6 @@ mod utils;
 mod fuzzy_config;
 
 static CONTAINER: Lazy<AppState> = Lazy::new(|| AppState {
-    history_dir: PathBuf::new().into(),
     theme: Theme::default().into(),
     active_buf: 0.into(),
     instances: HashMap::new().into(),
