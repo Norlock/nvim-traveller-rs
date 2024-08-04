@@ -76,6 +76,7 @@ impl FuzzyConfig for TravellerFuzzy {
 
                 Box::new(BufferSearch {
                     cwd: self.cwd(),
+                    search_query,
                     buf_infos,
                 })
             }
