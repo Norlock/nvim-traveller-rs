@@ -113,7 +113,7 @@ impl AppState {
         let selection = CONTAINER.selection.read().await;
         instance.add_keymaps(lua)?;
         instance.set_buffer_content(lua, &selection).await?;
-        show_selection_popup(lua, &selection, &mut instance).await?;
+        show_selection_popup(&lua, &selection, &mut instance).await?;
 
         let mut instances = CONTAINER.instances.write().await;
         instances.insert(buf_id, instance);
@@ -288,36 +288,36 @@ impl AppInstance {
     }
 }
 
-async fn buf_enter_callback<'a>(lua: &Lua, ev: AutoCmdCbEvent) -> LuaResult<()> {
+async fn buf_enter_callback<'a>(lua: Lua, ev: AutoCmdCbEvent) -> LuaResult<()> {
     AppState::set_active_buf(ev.buf.unwrap())?;
 
-    let cb = lua.create_async_function(|lua, ()| async {
+    let cb = lua.create_async_function(|lua, ()| async move {
         let mut instances = CONTAINER.instances.write().await;
         let instance = instances.get_mut(&AppState::active_buf()).unwrap();
 
         let selection = CONTAINER.selection.read().await;
 
-        show_selection_popup(lua, &selection, instance).await
+        show_selection_popup(&lua, &selection, instance).await
     })?;
 
-    NeoApi::delay(lua, 32, cb)
+    NeoApi::delay(&lua, 32, cb)
 }
 
-async fn buf_wipeout_callback(lua: &Lua, ev: AutoCmdCbEvent) -> LuaResult<()> {
+async fn buf_wipeout_callback(lua: Lua, ev: AutoCmdCbEvent) -> LuaResult<()> {
     let buf_id = ev.buf.unwrap();
 
     let defer_cb = lua.create_async_function(move |lua, ()| async move {
         let mut instances = CONTAINER.instances.write().await;
         let instance = instances.get_mut(&buf_id).unwrap();
         let selection = CONTAINER.selection.read().await;
-        instance.close_selection_popup(lua, &selection).await?;
+        instance.close_selection_popup(&lua, &selection).await?;
 
         let _ = instances.remove(&buf_id);
 
         Ok(())
     })?;
 
-    NeoApi::delay(lua, 64, defer_cb)
+    NeoApi::delay(&lua, 64, defer_cb)
 }
 
 fn copy_items_or_dir(lua: &Lua, source: PathBuf, target: PathBuf) -> LuaResult<()> {
@@ -369,23 +369,23 @@ async fn copy_or_move_selection(lua: &Lua, copy: bool) -> LuaResult<()> {
     instance.set_buffer_content(lua, &selection).await
 }
 
-async fn move_selection(lua: &Lua, _: ()) -> LuaResult<()> {
-    if let Err(err) = copy_or_move_selection(lua, false).await {
-        NeoApi::notify(lua, &err)?;
+async fn move_selection(lua: Lua, _: ()) -> LuaResult<()> {
+    if let Err(err) = copy_or_move_selection(&lua, false).await {
+        NeoApi::notify(&lua, &err)?;
     }
 
     Ok(())
 }
 
-async fn copy_selection(lua: &Lua, _: ()) -> LuaResult<()> {
-    if let Err(err) = copy_or_move_selection(lua, true).await {
-        NeoApi::notify(lua, &err)?;
+async fn copy_selection(lua: Lua, _: ()) -> LuaResult<()> {
+    if let Err(err) = copy_or_move_selection(&lua, true).await {
+        NeoApi::notify(&lua, &err)?;
     }
 
     Ok(())
 }
 
-async fn delete_selection(lua: &Lua, _: ()) -> LuaResult<()> {
+async fn delete_selection(lua: Lua, _: ()) -> LuaResult<()> {
     let mut instances = CONTAINER.instances.write().await;
     let instance = instances.get_mut(&AppState::active_buf()).unwrap();
 
@@ -406,31 +406,31 @@ async fn delete_selection(lua: &Lua, _: ()) -> LuaResult<()> {
     }
 
     *selection = HashMap::new();
-    instance.close_selection_popup(lua, &selection).await?;
-    instance.set_buffer_content(lua, &selection).await
+    instance.close_selection_popup(&lua, &selection).await?;
+    instance.set_buffer_content(&lua, &selection).await
 }
 
-async fn undo_selection(lua: &Lua, _: ()) -> LuaResult<()> {
+async fn undo_selection(lua: Lua, _: ()) -> LuaResult<()> {
     let mut selection = CONTAINER.selection.write().await;
     *selection = HashMap::new();
 
     let mut instances = CONTAINER.instances.write().await;
     let instance = instances.get_mut(&AppState::active_buf()).unwrap();
 
-    instance.close_selection_popup(lua, &selection).await
+    instance.close_selection_popup(&lua, &selection).await
 }
 
-async fn toggle_hidden(lua: &Lua, _: ()) -> LuaResult<()> {
+async fn toggle_hidden(lua: Lua, _: ()) -> LuaResult<()> {
     let mut instances = CONTAINER.instances.write().await;
     let instance = instances.get_mut(&AppState::active_buf()).unwrap();
 
     instance.show_hidden = !instance.show_hidden;
 
     let selection = CONTAINER.selection.read().await;
-    instance.set_buffer_content(lua, &selection).await
+    instance.set_buffer_content(&lua, &selection).await
 }
 
-async fn navigate_to_parent(lua: &Lua, _: ()) -> LuaResult<()> {
+async fn navigate_to_parent(lua: Lua, _: ()) -> LuaResult<()> {
     let mut instances = CONTAINER.instances.write().await;
     let instance = instances.get_mut(&AppState::active_buf()).unwrap();
 
@@ -439,7 +439,7 @@ async fn navigate_to_parent(lua: &Lua, _: ()) -> LuaResult<()> {
     }
 
     if !instance.buf_content.is_empty() {
-        instance.update_history(instance.get_item(lua)?);
+        instance.update_history(instance.get_item(&lua)?);
     }
 
     // Before navigating to parent add to history to the parent directory already knows to which it
@@ -455,23 +455,23 @@ async fn navigate_to_parent(lua: &Lua, _: ()) -> LuaResult<()> {
     instance.update_history(format!("{item}/"));
 
     let selection = CONTAINER.selection.read().await;
-    instance.set_buffer_content(lua, &selection).await
+    instance.set_buffer_content(&lua, &selection).await
 }
 
-async fn open_item_in_buffer(lua: &Lua, _: ()) -> LuaResult<()> {
-    open_item(lua, OpenIn::Buffer).await
+async fn open_item_in_buffer(lua: Lua, _: ()) -> LuaResult<()> {
+    open_item(&lua, OpenIn::Buffer).await
 }
 
-async fn open_item_in_tab(lua: &Lua, _: ()) -> LuaResult<()> {
-    open_item(lua, OpenIn::Tab).await
+async fn open_item_in_tab(lua: Lua, _: ()) -> LuaResult<()> {
+    open_item(&lua, OpenIn::Tab).await
 }
 
-async fn open_item_in_vsplit(lua: &Lua, _: ()) -> LuaResult<()> {
-    open_item(lua, OpenIn::VSplit).await
+async fn open_item_in_vsplit(lua: Lua, _: ()) -> LuaResult<()> {
+    open_item(&lua, OpenIn::VSplit).await
 }
 
-async fn open_item_in_hsplit(lua: &Lua, _: ()) -> LuaResult<()> {
-    open_item(lua, OpenIn::HSplit).await
+async fn open_item_in_hsplit(lua: Lua, _: ()) -> LuaResult<()> {
+    open_item(&lua, OpenIn::HSplit).await
 }
 
 async fn open_item(lua: &Lua, open_in: OpenIn) -> LuaResult<()> {
@@ -507,19 +507,19 @@ async fn open_item(lua: &Lua, open_in: OpenIn) -> LuaResult<()> {
     Ok(())
 }
 
-async fn close_navigation(lua: &Lua, _: ()) -> LuaResult<()> {
+async fn close_navigation(lua: Lua, _: ()) -> LuaResult<()> {
     let instances = CONTAINER.instances.read().await;
     let instance = instances.get(&AppState::active_buf()).unwrap();
 
     let path = instance.started_from.clone();
 
     if let Some(git_root) = NeoUtils::git_root(&instance.started_from) {
-        NeoApi::set_cwd(lua, &git_root)?;
+        NeoApi::set_cwd(&lua, &git_root)?;
     }
 
     drop(instances);
 
-    NeoApi::open_file(lua, OpenIn::Buffer, path.to_str().unwrap())
+    NeoApi::open_file(&lua, OpenIn::Buffer, path.to_str().unwrap())
 }
 
 fn nav_buffer_lines(path: &PathBuf, show_hidden: bool) -> LuaResult<Vec<String>> {

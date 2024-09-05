@@ -48,55 +48,55 @@ fn nvim_traveller_rs(lua: &Lua) -> LuaResult<LuaTable> {
     Ok(module)
 }
 
-async fn open_navigation(lua: &Lua, _: ()) -> LuaResult<()> {
-    let mut started_from = NeoApi::get_filepath(lua)?;
+async fn open_navigation(lua: Lua, _: ()) -> LuaResult<()> {
+    let mut started_from = NeoApi::get_filepath(&lua)?;
 
     if !started_from.is_file() {
         started_from = started_from.parent().unwrap().to_path_buf();
     }
 
-    if let Err(err) = AppState::open_navigation(lua, started_from).await {
-        NeoApi::notify(lua, &err)?;
+    if let Err(err) = AppState::open_navigation(&lua, started_from).await {
+        NeoApi::notify(&lua, &err)?;
     }
 
     Ok(())
 }
 
-async fn directory_search(lua: &Lua, _: ()) -> LuaResult<()> {
+async fn directory_search(lua: Lua, _: ()) -> LuaResult<()> {
     let home = NeoUtils::home_directory();
     let config = TravellerFuzzy::new(home, FuzzySearch::Directories);
 
-    if let Err(err) = NeoFuzzy::files_or_directories(lua, Box::new(config)).await {
-        NeoApi::notify(lua, &err)?;
+    if let Err(err) = NeoFuzzy::files_or_directories(&lua, Box::new(config)).await {
+        NeoApi::notify(&lua, &err)?;
     }
 
     Ok(())
 }
 
-async fn file_search(lua: &Lua, _: ()) -> LuaResult<()> {
-    let cwd = NeoApi::get_cwd(lua)?;
+async fn file_search(lua: Lua, _: ()) -> LuaResult<()> {
+    let cwd = NeoApi::get_cwd(&lua)?;
     let config = TravellerFuzzy::new(cwd, FuzzySearch::Files);
 
-    if let Err(err) = NeoFuzzy::files_or_directories(lua, Box::new(config)).await {
-        NeoApi::notify(lua, &err)?;
+    if let Err(err) = NeoFuzzy::files_or_directories(&lua, Box::new(config)).await {
+        NeoApi::notify(&lua, &err)?;
     }
 
     Ok(())
 }
 
-async fn buffer_search(lua: &Lua, _: ()) -> LuaResult<()> {
-    let cwd = NeoApi::get_cwd(lua)?;
+async fn buffer_search(lua: Lua, _: ()) -> LuaResult<()> {
+    let cwd = NeoApi::get_cwd(&lua)?;
     let config = TravellerFuzzy::new(cwd, FuzzySearch::Buffer);
 
-    if let Err(err) = NeoFuzzy::files_or_directories(lua, Box::new(config)).await {
-        NeoApi::notify(lua, &err)?;
+    if let Err(err) = NeoFuzzy::files_or_directories(&lua, Box::new(config)).await {
+        NeoApi::notify(&lua, &err)?;
     }
 
     Ok(())
 }
 
-async fn git_file_search(lua: &Lua, _: ()) -> LuaResult<()> {
-    let cwd = NeoApi::get_cwd(lua).unwrap();
+async fn git_file_search(lua: Lua, _: ()) -> LuaResult<()> {
+    let cwd = NeoApi::get_cwd(&lua).unwrap();
 
     let cwd = if let Some(git_root) = NeoUtils::git_root(&cwd) {
         git_root
@@ -106,8 +106,8 @@ async fn git_file_search(lua: &Lua, _: ()) -> LuaResult<()> {
 
     let config = TravellerFuzzy::new(cwd, FuzzySearch::GitFiles);
 
-    if let Err(err) = NeoFuzzy::files_or_directories(lua, Box::new(config)).await {
-        NeoApi::notify(lua, &err)?;
+    if let Err(err) = NeoFuzzy::files_or_directories(&lua, Box::new(config)).await {
+        NeoApi::notify(&lua, &err)?;
     }
 
     Ok(())
