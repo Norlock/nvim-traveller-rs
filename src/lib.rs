@@ -4,14 +4,12 @@ use neo_api_rs::mlua::prelude::*;
 use neo_api_rs::*;
 use once_cell::sync::Lazy;
 use state::AppState;
-use utils::NeoUtils;
 use std::collections::HashMap;
 use theme::Theme;
 
 mod popup;
 mod state;
 mod theme;
-mod utils;
 mod fuzzy_config;
 
 static CONTAINER: Lazy<AppState> = Lazy::new(|| AppState {

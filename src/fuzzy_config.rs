@@ -1,6 +1,6 @@
 use neo_api_rs::{
-    mlua::Lua, BufInfoOpts, BufferSearch, ExecPreview, ExecRecentDirectories, ExecStandardSearch,
-    ExecuteTask, FuzzyConfig, FuzzySearch, NeoApi, OpenIn, RTM,
+    mlua::Lua, BufferSearch, ExecPreview, ExecRecentDirectories, ExecStandardSearch, ExecuteTask,
+    FuzzyConfig, FuzzySearch, NeoApi, OpenIn, RTM,
 };
 use std::path::PathBuf;
 
@@ -40,7 +40,12 @@ impl FuzzyConfig for TravellerFuzzy {
         }
     }
 
-    fn search_task(&self, lua: &Lua, search_query: String, tab_idx: usize) -> Box<dyn ExecuteTask> {
+    fn search_task(
+        &self,
+        lua: &Lua,
+        search_query: String,
+        selected_tab: usize,
+    ) -> Box<dyn ExecuteTask> {
         match self.search_type {
             FuzzySearch::Files => Box::new(ExecStandardSearch {
                 cmd: "fd",
@@ -58,7 +63,7 @@ impl FuzzyConfig for TravellerFuzzy {
                 search_type: self.search_type,
             }),
             FuzzySearch::Directories => {
-                if tab_idx == 0 {
+                if selected_tab == 0 {
                     Box::new(ExecStandardSearch {
                         cmd: "fd",
                         search_query,
@@ -71,14 +76,7 @@ impl FuzzyConfig for TravellerFuzzy {
                 }
             }
             FuzzySearch::Buffer => {
-                let buf_infos = NeoApi::get_buf_info(lua, BufInfoOpts::BufListed)
-                    .expect("Buf info not working");
-
-                Box::new(BufferSearch {
-                    cwd: self.cwd(),
-                    search_query,
-                    buf_infos,
-                })
+                Box::new(BufferSearch::new(lua, &self.cwd(), selected_tab).unwrap())
             }
         }
     }
@@ -95,12 +93,13 @@ impl FuzzyConfig for TravellerFuzzy {
         })
     }
 
-    fn tabs(&self) -> Vec<Box<str>> {
-        match self.search_type {
-            FuzzySearch::Directories => {
-                vec![" All directories ".into(), " Last used ".into()]
-            }
-            _ => vec![],
-        }
-    }
+    //fn tabs(&self) -> Vec<Box<str>> {
+    //match self.search_type {
+    //FuzzySearch::Directories => {
+    //vec![" All directories ".into(), " Last used ".into()]
+    //}
+    //FuzzySearch::Buffer => NeoFuzzy::get_buffers_tabs(),
+    //_ => vec![],
+    //}
+    //}
 }

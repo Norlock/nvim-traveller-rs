@@ -1,6 +1,5 @@
 use crate::popup::{rename_items_popup, show_selection_popup, update_selection_popup};
 use crate::theme::Theme;
-use crate::utils::NeoUtils;
 use crate::{popup, CONTAINER};
 use neo_api_rs::mlua::prelude::*;
 use neo_api_rs::*;
