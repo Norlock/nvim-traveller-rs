@@ -1,6 +1,6 @@
 use neo_api_rs::{
-    mlua::Lua, BufferSearch, ExecPreview, ExecRecentDirectories, ExecStandardSearch, ExecuteTask,
-    FuzzyConfig, FuzzySearch, NeoApi, OpenIn, RTM,
+    mlua::Lua, BufferSearch, ExecDirectorySearch, ExecFileSearch, ExecPreview,
+    ExecRecentDirectories, ExecuteTask, FuzzyConfig, FuzzySearch, NeoApi, NeoUtils, OpenIn, RTM,
 };
 use std::path::PathBuf;
 
@@ -47,32 +47,28 @@ impl FuzzyConfig for TravellerFuzzy {
         selected_tab: usize,
     ) -> Box<dyn ExecuteTask> {
         match self.search_type {
-            FuzzySearch::Files => Box::new(ExecStandardSearch {
+            FuzzySearch::Files => Box::new(ExecFileSearch {
                 cmd: "fd",
                 search_query,
                 cwd: self.cwd(),
                 args: vec!["--type", "file"],
-
-                search_type: self.search_type,
             }),
-            FuzzySearch::GitFiles => Box::new(ExecStandardSearch {
+            FuzzySearch::GitFiles => Box::new(ExecFileSearch {
                 cmd: "git",
                 search_query,
                 cwd: self.cwd(),
                 args: vec!["ls-files", "--cached", "--others", "--exclude-standard"],
-                search_type: self.search_type,
             }),
             FuzzySearch::Directories => {
                 if selected_tab == 0 {
-                    Box::new(ExecStandardSearch {
+                    Box::new(ExecDirectorySearch {
                         cmd: "fd",
                         search_query,
-                        cwd: self.cwd(),
+                        cwd: NeoUtils::home_directory(),
                         args: vec!["--type", "directory"],
-                        search_type: self.search_type,
                     })
                 } else {
-                    Box::new(ExecRecentDirectories::new(lua, search_query).unwrap())
+                    Box::new(ExecRecentDirectories::new(search_query))
                 }
             }
             FuzzySearch::Buffer => {
@@ -92,14 +88,4 @@ impl FuzzyConfig for TravellerFuzzy {
             selected_idx,
         })
     }
-
-    //fn tabs(&self) -> Vec<Box<str>> {
-    //match self.search_type {
-    //FuzzySearch::Directories => {
-    //vec![" All directories ".into(), " Last used ".into()]
-    //}
-    //FuzzySearch::Buffer => NeoFuzzy::get_buffers_tabs(),
-    //_ => vec![],
-    //}
-    //}
 }

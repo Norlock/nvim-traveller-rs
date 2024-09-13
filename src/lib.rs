@@ -64,7 +64,7 @@ async fn directory_search(lua: Lua, _: ()) -> LuaResult<()> {
     let home = NeoUtils::home_directory();
     let config = TravellerFuzzy::new(home, FuzzySearch::Directories);
 
-    if let Err(err) = NeoFuzzy::files_or_directories(&lua, Box::new(config)).await {
+    if let Err(err) = NeoFuzzy::open(&lua, Box::new(config)).await {
         NeoApi::notify(&lua, &err)?;
     }
 
@@ -75,7 +75,7 @@ async fn file_search(lua: Lua, _: ()) -> LuaResult<()> {
     let cwd = NeoApi::get_cwd(&lua)?;
     let config = TravellerFuzzy::new(cwd, FuzzySearch::Files);
 
-    if let Err(err) = NeoFuzzy::files_or_directories(&lua, Box::new(config)).await {
+    if let Err(err) = NeoFuzzy::open(&lua, Box::new(config)).await {
         NeoApi::notify(&lua, &err)?;
     }
 
@@ -86,7 +86,7 @@ async fn buffer_search(lua: Lua, _: ()) -> LuaResult<()> {
     let cwd = NeoApi::get_cwd(&lua)?;
     let config = TravellerFuzzy::new(cwd, FuzzySearch::Buffer);
 
-    if let Err(err) = NeoFuzzy::files_or_directories(&lua, Box::new(config)).await {
+    if let Err(err) = NeoFuzzy::open(&lua, Box::new(config)).await {
         NeoApi::notify(&lua, &err)?;
     }
 
@@ -104,7 +104,7 @@ async fn git_file_search(lua: Lua, _: ()) -> LuaResult<()> {
 
     let config = TravellerFuzzy::new(cwd, FuzzySearch::GitFiles);
 
-    if let Err(err) = NeoFuzzy::files_or_directories(&lua, Box::new(config)).await {
+    if let Err(err) = NeoFuzzy::open(&lua, Box::new(config)).await {
         NeoApi::notify(&lua, &err)?;
     }
 
