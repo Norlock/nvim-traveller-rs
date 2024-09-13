@@ -1,6 +1,7 @@
 use neo_api_rs::{
     mlua::Lua, BufferSearch, ExecDirectorySearch, ExecFileSearch, ExecPreview,
-    ExecRecentDirectories, ExecuteTask, FuzzyConfig, FuzzySearch, NeoApi, NeoUtils, OpenIn, RTM,
+    ExecRecentDirectories, ExecuteTask, FuzzyConfig, FuzzySearch, NeoApi, NeoDebug, NeoUtils,
+    OpenIn, RTM,
 };
 use std::path::PathBuf;
 
@@ -31,11 +32,15 @@ impl FuzzyConfig for TravellerFuzzy {
         match self.search_type {
             FuzzySearch::Directories => RTM.block_on(async move {
                 if let Err(err) = AppState::open_navigation(lua, selected).await {
-                    let _ = NeoApi::notify(lua, &err);
+                    NeoDebug::log(err).await;
                 }
             }),
             FuzzySearch::Files | FuzzySearch::GitFiles | FuzzySearch::Buffer => {
-                let _ = NeoApi::open_file(lua, open_in, selected.to_str().unwrap());
+                if let Err(_e) =
+                    NeoApi::open_file(lua, open_in, selected.to_string_lossy().as_ref())
+                {
+                    // TODO
+                }
             }
         }
     }
