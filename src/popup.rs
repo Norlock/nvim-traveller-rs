@@ -204,18 +204,18 @@ pub async fn show_selection_popup(
     ];
 
     if count == 0 {
-        instance.close_selection_popup(&lua, selection).await?;
+        instance.close_selection_popup(lua, selection).await?;
     } else if let Some(popup) = &instance.selection_popup {
-        popup.buf.set_lines(&lua, 0, -1, false, &lines)?;
-        instance.theme_nav_buffer(&lua, selection).await?;
+        popup.buf.set_lines(lua, 0, -1, false, &lines)?;
+        instance.theme_nav_buffer(lua, selection).await?;
     } else {
-        let popup_buf = NeoBuffer::create(&lua, false, true)?;
-        instance.theme_nav_buffer(&lua, selection).await?;
+        let popup_buf = NeoBuffer::create(lua, false, true)?;
+        instance.theme_nav_buffer(lua, selection).await?;
 
-        popup_buf.set_lines(&lua, 0, -1, false, &lines)?;
+        popup_buf.set_lines(lua, 0, -1, false, &lines)?;
 
         let popup = NeoPopup::open(
-            &lua,
+            lua,
             popup_buf,
             false,
             WinOptions {

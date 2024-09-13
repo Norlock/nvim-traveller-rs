@@ -112,7 +112,7 @@ impl AppState {
         let selection = CONTAINER.selection.read().await;
         instance.add_keymaps(lua)?;
         instance.set_buffer_content(lua, &selection).await?;
-        show_selection_popup(&lua, &selection, &mut instance).await?;
+        show_selection_popup(lua, &selection, &mut instance).await?;
 
         let mut instances = CONTAINER.instances.write().await;
         instances.insert(buf_id, instance);
