@@ -53,8 +53,6 @@ unsafe impl Sync for AppState {}
 
 impl AppState {
     pub fn init(lua: &Lua) -> LuaResult<()> {
-        //self.history_dir = NeoApi::stdpath(lua, StdpathType::State)?;
-
         let mut theme = CONTAINER.theme.blocking_write();
 
         theme.init(lua)

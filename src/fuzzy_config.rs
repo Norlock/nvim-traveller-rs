@@ -1,7 +1,6 @@
 use neo_api_rs::{
-    mlua::Lua, BufferSearch, ExecDirectorySearch, ExecFileSearch, ExecPreview,
-    ExecRecentDirectories, ExecuteTask, FuzzyConfig, FuzzySearch, NeoApi, NeoDebug, NeoUtils,
-    OpenIn, RTM,
+    mlua::Lua, BufferSearch, ExecDirectorySearch, FileSearchTask, ExecRecentDirectories,
+    ExecuteTask, FuzzyConfig, FuzzySearch, NeoApi, NeoDebug, NeoUtils, OpenIn, RTM,
 };
 use std::path::PathBuf;
 
@@ -52,13 +51,13 @@ impl FuzzyConfig for TravellerFuzzy {
         selected_tab: usize,
     ) -> Box<dyn ExecuteTask> {
         match self.search_type {
-            FuzzySearch::Files => Box::new(ExecFileSearch {
+            FuzzySearch::Files => Box::new(FileSearchTask {
                 cmd: "fd",
                 search_query,
                 cwd: self.cwd(),
                 args: vec!["--type", "file"],
             }),
-            FuzzySearch::GitFiles => Box::new(ExecFileSearch {
+            FuzzySearch::GitFiles => Box::new(FileSearchTask {
                 cmd: "git",
                 search_query,
                 cwd: self.cwd(),
@@ -80,17 +79,5 @@ impl FuzzyConfig for TravellerFuzzy {
                 Box::new(BufferSearch::new(lua, &self.cwd(), selected_tab).unwrap())
             }
         }
-    }
-
-    fn preview_task(
-        &self,
-        _lua: &Lua,
-        selected_idx: usize,
-        _tab_idx: usize,
-    ) -> Box<dyn ExecuteTask> {
-        Box::new(ExecPreview {
-            cwd: self.cwd(),
-            selected_idx,
-        })
     }
 }
